@@ -1,0 +1,19 @@
+{
+  "name": "sm-ws",
+  "version": "1.0.0",
+  "description": "sm rest api",
+  "main": "app.js",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ashish Bhosle",
+  "license": "",
+  "dependencies": {
+    "boom": "^3.2.1",
+    "hapi": "^13.4.1",
+    "joi": "^8.4.2",
+    "mongojs": "^2.4.0",
+    "node-uuid": "^1.4.7"
+  }
+}
