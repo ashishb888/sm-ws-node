@@ -53,20 +53,28 @@ exports.register = function(server, options, next) {
         path: '/users',
         handler: function(request, reply) {
 
-                const book = request.payload.data;
+                const user = request.payload.data;
 
                 //Create an id
-                //book._id = uuid.v1();
+                user._id = request.payload.data.phone;
+                user.createdAt = new Date();
+                user.updatedAt = new Date();
+                user.lastActive = new Date();
+                user.isActive = false;
+                user.isDeleted = false;
 
-                db.user.save(book, (err, result) => {
+                db.user.save(user, (err, result) => {
 
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
                     }
                     var resp = {
                         status: "SUCCESS",
-                        messages: "Signed up!",
-                        data: book
+                        messages: "Signed up!"
+                            /*,
+                                                    data: {
+                                                      userId: user._id
+                                                    }*/
                     }
                     reply(resp);
                 });
@@ -156,17 +164,179 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc) {
-                  resp.status = "ERROR",
-                  resp.messages = "No auth";
-                  //return reply(Boom.notFound());
-                  return reply(resp);
+                    resp.status = "ERROR",
+                        resp.messages = "No auth";
+                    //return reply(Boom.notFound());
+                    return reply(resp);
                 }
+
+                resp.data = {
+                    userId: doc.phone
+                };
 
                 reply(resp);
             });
 
         }
     });
+
+    server.route({
+        method: 'GET',
+        path: '/personal',
+        handler: function(request, reply) {
+
+            db.user.findOne({
+                phone: request.payload.data.phone,
+            }, (err, doc) => {
+                var resp = {
+                    status: "SUCCESS"
+                };
+
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                if (!doc) {
+                    resp.status = "ERROR",
+                        resp.messages = "No auth";
+                    //return reply(Boom.notFound());
+                    return reply(resp);
+                }
+
+                resp.data = {
+                    userId: doc.phone
+                };
+
+                reply(resp);
+            });
+
+        }
+    });
+
+    server.route({
+        method: 'POST',
+        path: '/pinfo',
+        handler: function(request, reply) {
+
+          const user = request.payload.data;
+
+          //Create an id
+          //user._id = request.payload.data.userId;
+
+          db.user.update({
+              _id: request.payload.data._id
+          }, {
+              $set: {pinfo: request.payload.data.pinfo, fullName: request.payload.data.pinfo.fullName}
+          }, function(err, result) {
+              var resp = {};
+              if (err) {
+                  return reply(Boom.wrap(err, 'Internal MongoDB error'));
+              }
+
+              if (result.n === 0) {
+                  return reply(Boom.notFound());
+              }
+
+              resp.status = "SUCCESS";
+              resp.messages = "Added";
+              return reply(resp);
+
+              //reply().code(204);
+          });
+
+        }
+    });
+
+    // Location
+    server.route({
+        method: 'POST',
+        path: '/location',
+        handler: function(request, reply) {
+
+          db.user.update({
+              _id: request.payload.data._id
+          }, {
+              $set: {location: request.payload.data.location}
+          }, function(err, result) {
+              var resp = {};
+              if (err) {
+                  return reply(Boom.wrap(err, 'Internal MongoDB error'));
+              }
+
+              if (result.n === 0) {
+                  return reply(Boom.notFound());
+              }
+
+              resp.status = "SUCCESS";
+              resp.messages = "Added";
+              return reply(resp);
+
+              //reply().code(204);
+          });
+
+        }
+    });
+
+    // Family
+    server.route({
+        method: 'POST',
+        path: '/family',
+        handler: function(request, reply) {
+
+          db.user.update({
+              _id: request.payload.data._id
+          }, {
+              $set: {family: request.payload.data.family}
+          }, function(err, result) {
+              var resp = {};
+              if (err) {
+                  return reply(Boom.wrap(err, 'Internal MongoDB error'));
+              }
+
+              if (result.n === 0) {
+                  return reply(Boom.notFound());
+              }
+
+              resp.status = "SUCCESS";
+              resp.messages = "Added";
+              return reply(resp);
+
+              //reply().code(204);
+          });
+
+        }
+    });
+
+    // Professional
+    server.route({
+        method: 'POST',
+        path: '/professional',
+        handler: function(request, reply) {
+
+          db.user.update({
+              _id: request.payload.data._id
+          }, {
+              $set: {professional: request.payload.data.professional}
+          }, function(err, result) {
+              var resp = {};
+              if (err) {
+                  return reply(Boom.wrap(err, 'Internal MongoDB error'));
+              }
+
+              if (result.n === 0) {
+                  return reply(Boom.notFound());
+              }
+
+              resp.status = "SUCCESS";
+              resp.messages = "Added";
+              return reply(resp);
+
+              //reply().code(204);
+          });
+
+        }
+    });
+
 
     return next();
 };
