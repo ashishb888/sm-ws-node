@@ -307,16 +307,16 @@ exports.register = function(server, options, next) {
         }
     });
 
-    // Professional
+    // Profession
     server.route({
         method: 'POST',
-        path: '/professional',
+        path: '/profession',
         handler: function(request, reply) {
 
           db.user.update({
               _id: request.payload.data._id
           }, {
-              $set: {professional: request.payload.data.professional}
+              $set: {profession: request.payload.data.profession}
           }, function(err, result) {
               var resp = {};
               if (err) {
@@ -337,6 +337,63 @@ exports.register = function(server, options, next) {
         }
     });
 
+    server.route({
+        method: 'POST',
+        path: '/images',
+        handler: function(request, reply) {
+
+          db.user.update({
+              _id: request.payload.data._id
+          }, {
+              $set: {ownImgs: request.payload.data.ownImgs}
+          }, function(err, result) {
+              var resp = {};
+              if (err) {
+                  return reply(Boom.wrap(err, 'Internal MongoDB error'));
+              }
+
+              if (result.n === 0) {
+                  return reply(Boom.notFound());
+              }
+
+              resp.status = "SUCCESS";
+              resp.messages = "Added";
+              return reply(resp);
+
+              //reply().code(204);
+          });
+
+        }
+    });
+
+    server.route({
+        method: 'GET',
+        path: '/images/{id}',
+        handler: function(request, reply) {
+          request.params.id
+
+          db.user.find({
+              _id: { $eq: request.params.id}
+          }, {
+              ownImgs: 1
+          }, function(err, docs) {
+
+              if (err) {
+                  return reply(Boom.wrap(err, 'Internal MongoDB error'));
+              }
+
+              var resp = {
+                data:{
+                }
+              };
+              resp.status = "SUCCESS";
+              resp.messages = "Added";
+              resp.data.base64 = docs;
+              return reply(resp);
+              //reply(docs);
+          });
+        }
+    });
 
     return next();
 };
