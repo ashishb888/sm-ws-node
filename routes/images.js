@@ -28,7 +28,7 @@ exports.register = function(server, options, next) {
                     queryObj.dp = true;
                     break;
             }
-            db.user.find({
+            db.images.find({
                 _id: mongojs.ObjectId(id)
             }, queryObj, function(err, docs) {
                 var resp = {
@@ -60,10 +60,25 @@ exports.register = function(server, options, next) {
         method: 'POST',
         path: '/images',
         handler: function(request, reply) {
+          var req = request.payload.data;
             var resp = {
                 data: {}
             };
-            db.user.update({
+            var queryObj = {};
+
+            switch (req.type) {
+                case "own":
+                    queryObj.ownImages = true;
+                    break;
+                case "home":
+                    queryObj.homeImages = true;
+                    break;
+                case "dp":
+                    queryObj.dp = true;
+                    break;
+            }
+
+            db.images.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $set: {
@@ -95,7 +110,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.find({
+            db.images.find({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
                 ownImgs: true

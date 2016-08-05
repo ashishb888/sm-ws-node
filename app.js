@@ -5,6 +5,56 @@ const mongojs = require('mongojs');
 
 // Create a server with a host and port
 const server = new Hapi.Server();
+
+var people = { // our "users database"
+    1: {
+      id: 1,
+      name: 'Jen Jones'
+    }
+};
+
+var validate = function (decoded, request, callback) {
+
+    // do your checks to see if the person is valid
+    if (!people[decoded.id]) {
+      return callback(null, false);
+    }
+    else {
+      return callback(null, true);
+    }
+};
+
+/*server.register(require('hapi-auth-jwt2'), function (err) {
+
+    if(err){
+      console.log(err);
+    }
+
+    server.auth.strategy('jwt', 'jwt',
+    { key: 'NeverShareYourSecret',          // Never Share your secret key
+      validateFunc: validate,            // validate function defined above
+      verifyOptions: { algorithms: [ 'HS256' ] } // pick a strong algorithm
+    });
+
+    server.auth.default('jwt');
+
+    server.route([
+      {
+        method: "GET", path: "/", config: { auth: false },
+        handler: function(request, reply) {
+          reply({text: 'Token not required'});
+        }
+      },
+      {
+        method: 'GET', path: '/restricted', config: { auth: 'jwt' },
+        handler: function(request, reply) {
+          reply({text: 'You used a Token!'})
+          .header("Authorization", request.headers.authorization);
+        }
+      }
+    ]);
+});
+*/
 server.connection({
   /*host:"localhost",*/
   port: 3000
@@ -15,7 +65,7 @@ server.connection({
 });
 
 const opts = { file: {
-    filename: './test/file',
+    filename: './logs/sm-ws.log',
     format: ':level :time :data',
     timestamp: 'HH:mm:ss',
     accessFormat: ':time :level :method :status :url'
@@ -40,8 +90,8 @@ const opts = { file: {
   }*/
 };
 
-var logger = require('bucker').createLogger({ access: 'access.log', error: 'error.log', app: { file: 'app.log' }, console: true }, module);
 
+var logger = require('bucker').createLogger({ access: './logs/access.log', error: './logs/error.log', app: { file: './logs/app.log' }, console: true }, module);
 logger.info('informational message');
 logger.debug('debug message');
 logger.warn('warning');
@@ -71,13 +121,13 @@ const options = {
             name: 'SafeJson'
         }, {
             module: 'good-file',
-            args: ['./test/fixtures/awesome_log']
+            args: ['./logs/good.log']
         }]
     }
 };
 
 //Connect to db
-server.app.db = mongojs('smdb', ['user']);
+server.app.db = mongojs('smdb', ['users', 'images']);
 
 // Use mongojs throughout the app
 server.app.mongojs = mongojs;

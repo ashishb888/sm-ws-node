@@ -19,7 +19,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
 
-            db.user.findOne({
+            db.users.findOne({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
                 interestIn: true
@@ -29,10 +29,10 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc.interestIn || doc.interestIn.length === 0) {
-                  resp.status = "SUCCESS";
-                  resp.messages = "No requests.";
-                  resp.data.profiles = [];
-                  return reply(resp);
+                    resp.status = "SUCCESS";
+                    resp.messages = "No requests.";
+                    resp.data.profiles = [];
+                    return reply(resp);
                 }
 
                 var queryObj = {};
@@ -45,7 +45,7 @@ exports.register = function(server, options, next) {
                     $in: interestInIds
                 };
 
-                db.user.find(queryObj, {
+                db.users.find(queryObj, {
                     fullName: true
                 }, function(err, docs) {
                     if (err) {
@@ -72,38 +72,53 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             const user = request.payload.data;
-            db.user.findOne({
-                _id: mongojs.ObjectId(user._id)
+            db.users.findOne({
+                phone: user.phone.phone
             }, {
                 phone: true
             }, (err, doc) => {
                 if (err) {
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
                 }
-                console.log("doc.phone: " + doc.phone);
-
-                if (doc.phone !== user.phone.oldPhone) {
-                    resp.status = "ERROR",
-                        resp.messages = "Wrong old mobile number.";
+                console.log("Phone update: " + util.inspect(doc, false, null));
+                if (doc) {
+                    resp.status = "ERROR";
+                    resp.messages = "Mobile number is already registered.";
                     return reply(resp);
                 }
 
-                // Update the password
-                db.user.update({
+                db.users.findOne({
                     _id: mongojs.ObjectId(user._id)
                 }, {
-                    $set: {
-                        phone: user.phone.phone
-                    }
-                }, function(err, result) {
+                    phone: true
+                }, (err, doc) => {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
                     }
-                    resp.status = "SUCCESS";
-                    resp.messages = "Mobile number updated";
-                    return reply(resp);
 
-                    //reply().code(204);
+                    if (doc.phone !== user.phone.oldPhone) {
+                        resp.status = "ERROR";
+                        resp.messages = "Wrong old mobile number.";
+                        return reply(resp);
+                    }
+
+                    db.users.update({
+                        _id: mongojs.ObjectId(user._id)
+                    }, {
+                        $set: {
+                            phone: user.phone.phone
+                        }
+                    }, function(err, result) {
+                        if (err) {
+                            return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                        }
+
+                        resp.status = "SUCCESS";
+                        resp.messages = "Mobile number updated.";
+                        return reply(resp);
+
+                        //reply().code(204);
+                    });
                 });
             });
         }
@@ -117,43 +132,56 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             const user = request.payload.data;
-            db.user.findOne({
-                _id: mongojs.ObjectId(user._id)
-            }, {
-                password: true
+
+            db.users.findOne({
+                phone: user.phone,
             }, (err, doc) => {
                 if (err) {
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
                 }
-                console.log("doc: " + doc.password);
-                if (doc.password !== user.password.oldPassword) {
-                    resp.status = "ERROR",
-                        resp.messages = "Wrong old password";
+
+                if (doc) {
+                    resp.status = "ERROR";
+                    resp.messages = "Phone number is already registered!";
                     return reply(resp);
                 }
 
-                if (user.password.password !== user.password.rePassword) {
-                    resp.status = "ERROR",
-                        resp.messages = "New password mismatches";
-                    return reply(resp);
-                }
-                // Update the password
-                db.user.update({
+                db.users.findOne({
                     _id: mongojs.ObjectId(user._id)
                 }, {
-                    $set: {
-                        password: user.password.password
-                    }
-                }, function(err, result) {
+                    password: true
+                }, (err, doc) => {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
                     }
+                    console.log("doc: " + doc.password);
+                    if (doc.password !== user.password.oldPassword) {
+                        resp.status = "ERROR";
+                        resp.messages = "Wrong old password";
+                        return reply(resp);
+                    }
 
-                    resp.status = "SUCCESS";
-                    resp.messages = "Password updated";
-                    return reply(resp);
+                    if (user.password.password !== user.password.rePassword) {
+                        resp.status = "ERROR";
+                        resp.messages = "New password mismatches";
+                        return reply(resp);
+                    }
+                    // Update the password
+                    db.users.update({
+                        _id: mongojs.ObjectId(user._id)
+                    }, {
+                        $set: {
+                            password: user.password.password
+                        }
+                    }, function(err, result) {
+                        if (err) {
+                            return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                        }
 
-                    //reply().code(204);
+                        resp.status = "SUCCESS";
+                        resp.messages = "Password updated";
+                        return reply(resp);
+                    });
                 });
             });
         }
@@ -167,7 +195,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             const user = request.payload.data;
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $pull: {
@@ -180,7 +208,7 @@ exports.register = function(server, options, next) {
 
                 console.log("result: " + result);
 
-                db.user.update({
+                db.users.update({
                     _id: mongojs.ObjectId(request.payload.data.id)
                 }, {
                     $pull: {
@@ -210,7 +238,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             const user = request.payload.data;
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $addToSet: {
@@ -223,7 +251,7 @@ exports.register = function(server, options, next) {
 
                 console.log("result: " + result);
 
-                db.user.update({
+                db.users.update({
                     _id: mongojs.ObjectId(request.payload.data.id)
                 }, {
                     $addToSet: {
@@ -253,7 +281,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             const user = request.payload.data;
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $pull: {
@@ -286,7 +314,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             const user = request.payload.data;
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(user._id)
             }, {
                 $addToSet: {
@@ -315,7 +343,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
 
-            db.user.findOne({
+            db.users.findOne({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
                 shortlisted: true
@@ -325,10 +353,10 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc.shortlisted || doc.shortlisted.length === 0) {
-                  resp.status = "SUCCESS";
-                  resp.messages = "No requests.";
-                  resp.data.profiles = [];
-                  return reply(resp);
+                    resp.status = "SUCCESS";
+                    resp.messages = "No requests.";
+                    resp.data.profiles = [];
+                    return reply(resp);
                 }
 
                 var queryObj = {};
@@ -358,7 +386,7 @@ exports.register = function(server, options, next) {
                     };
                 }*/
 
-                db.user.find(queryObj, {
+                db.users.find(queryObj, {
                     fullName: true
                 }, function(err, docs) {
                     if (err) {
@@ -387,7 +415,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
 
-            db.user.findOne({
+            db.users.findOne({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
                 shortlisted: true
@@ -411,8 +439,9 @@ exports.register = function(server, options, next) {
                     }
                 }
 
-                db.user.find(queryObj, {
-                    fullName: true
+                db.users.find(queryObj, {
+                    fullName: true,
+                    userId: true
                 }, (err, docs) => {
 
                     if (err) {
@@ -438,10 +467,11 @@ exports.register = function(server, options, next) {
                 data: {}
             };
 
-            db.user.find({
+            db.users.find({
                 /*_id: {$not: { $eq: ObjectId('579ef8f69ad37c45d757f0a5')}}*/
             }, {
-                fullName: true
+                fullName: true,
+                userId: true
             }, (err, docs) => {
 
                 if (err) {
@@ -463,7 +493,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             console.log("request.params.id:" + request.params.id);
-            db.user.findOne({
+            db.users.findOne({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
                 gender: true,
@@ -500,7 +530,7 @@ exports.register = function(server, options, next) {
             };
             var userId = request.params.id.toUpperCase();
             console.log("request.params.id:" + userId);
-            db.user.findOne({
+            db.users.findOne({
                 userId: userId
             }, (err, doc) => {
 
@@ -530,7 +560,7 @@ exports.register = function(server, options, next) {
                 };
                 const user = request.payload.data;
 
-                db.user.findOne({
+                db.users.findOne({
                     phone: user.phone,
                 }, (err, doc) => {
                     if (err) {
@@ -538,9 +568,8 @@ exports.register = function(server, options, next) {
                     }
 
                     if (doc) {
-                        resp.status = "ERROR",
-                            resp.messages = "Phone number is already registered!";
-                        //return reply(Boom.notFound());
+                        resp.status = "ERROR";
+                        resp.messages = "Phone number is already registered!";
                         return reply(resp);
                     }
 
@@ -551,7 +580,7 @@ exports.register = function(server, options, next) {
                     user.isActive = false;
                     user.isDeleted = false;
                     user.isVerified = false;
-                    db.user.save(user, (err, result) => {
+                    db.users.save(user, (err, result) => {
                         if (err) {
                             return reply(Boom.wrap(err, 'Internal MongoDB error'));
                         }
@@ -581,7 +610,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
                 $set: request.payload
@@ -616,7 +645,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.remove({
+            db.users.remove({
                 _id: request.params.id
             }, function(err, result) {
 
@@ -640,7 +669,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.findOne({
+            db.users.findOne({
                 phone: request.payload.data.phone,
                 password: request.payload.data.password
             }, (err, doc) => {
@@ -649,8 +678,8 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc) {
-                    resp.status = "ERROR",
-                        resp.messages = "No auth";
+                    resp.status = "ERROR";
+                    resp.messages = "No auth";
                     //return reply(Boom.notFound());
                     return reply(resp);
                 }
@@ -674,7 +703,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.findOne({
+            db.users.findOne({
                 phone: request.payload.data.phone,
             }, (err, doc) => {
                 if (err) {
@@ -682,8 +711,8 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc) {
-                    resp.status = "ERROR",
-                        resp.messages = "No auth";
+                    resp.status = "ERROR";
+                    resp.messages = "No auth";
                     //return reply(Boom.notFound());
                     return reply(resp);
                 }
@@ -691,6 +720,38 @@ exports.register = function(server, options, next) {
                 reply(resp);
             });
 
+        }
+    });
+
+    server.route({
+        method: 'GET',
+        path: '/pinfo/{id}',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+            db.users.findOne({
+                _id: mongojs.ObjectId(request.params.id)
+            }, {
+                pinfo: true
+            }, function(err, doc) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+
+                if (!doc.pinfo) {
+                    resp.messages = "No data found.";
+                    return reply(resp);
+                }
+
+                resp.messages = "Data found.";
+                //console.log(util.inspect(doc, false, null));
+                resp.data.pinfo = doc.pinfo;
+                //resp.data.pinfo.dob = new Date(resp.data.pinfo.dob);
+                return reply(resp);
+            });
         }
     });
 
@@ -703,12 +764,11 @@ exports.register = function(server, options, next) {
             };
             const user = request.payload.data;
             user.pinfo.dob = new Date(user.pinfo.dob);
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(user._id)
             }, {
                 $set: {
-                    pinfo: user.pinfo,
-                    fullName: user.pinfo.fullName
+                    pinfo: user.pinfo
                 }
             }, function(err, result) {
                 if (err) {
@@ -729,6 +789,37 @@ exports.register = function(server, options, next) {
         }
     });
 
+    server.route({
+        method: 'GET',
+        path: '/location/{id}',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+            db.users.findOne({
+                _id: mongojs.ObjectId(request.params.id)
+            }, {
+                location: true
+            }, function(err, doc) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+
+                if (!doc.location) {
+                    resp.messages = "No data found.";
+                    return reply(resp);
+                }
+
+                resp.messages = "Data found.";
+                //console.log(util.inspect(doc, false, null));
+                resp.data.location = doc.location;
+                return reply(resp);
+            });
+        }
+    });
+
     // Location
     server.route({
         method: 'POST',
@@ -737,7 +828,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $set: {
@@ -762,6 +853,38 @@ exports.register = function(server, options, next) {
         }
     });
 
+    server.route({
+        method: 'GET',
+        path: '/family/{id}',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+            db.users.findOne({
+                _id: mongojs.ObjectId(request.params.id)
+            }, {
+                family: true
+            }, function(err, doc) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+
+                if (!doc.family) {
+                    resp.messages = "No data found.";
+                    return reply(resp);
+                }
+
+                resp.messages = "Data found.";
+                //console.log(util.inspect(doc, false, null));
+                resp.data.family = doc.family;
+                //resp.data.pinfo.dob = new Date(resp.data.pinfo.dob);
+                return reply(resp);
+            });
+        }
+    });
+
     // Family
     server.route({
         method: 'POST',
@@ -770,7 +893,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $set: {
@@ -795,6 +918,37 @@ exports.register = function(server, options, next) {
         }
     });
 
+    server.route({
+        method: 'GET',
+        path: '/profession/{id}',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+            db.users.findOne({
+                _id: mongojs.ObjectId(request.params.id)
+            }, {
+                profession: true
+            }, function(err, doc) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+
+                if (!doc.profession) {
+                    resp.messages = "No data found.";
+                    return reply(resp);
+                }
+
+                resp.messages = "Data found.";
+                //console.log(util.inspect(doc, false, null));
+                resp.data.profession = doc.profession;
+                return reply(resp);
+            });
+        }
+    });
+
     // Profession
     server.route({
         method: 'POST',
@@ -803,7 +957,7 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            db.user.update({
+            db.users.update({
                 _id: mongojs.ObjectId(request.payload.data._id)
             }, {
                 $set: {
