@@ -3,6 +3,7 @@
 const Boom = require('boom');
 const uuid = require('node-uuid');
 const Joi = require('joi');
+const util = require('util');
 
 exports.register = function(server, options, next) {
 
@@ -10,14 +11,16 @@ exports.register = function(server, options, next) {
     const mongojs = server.app.mongojs;
 
     server.route({
-        method: 'GET',
-        path: '/images/{type}/{id}',
+        method: 'DELETE',
+        path: '/images/{id}',
         handler: function(request, reply) {
-            var id = request.params.id;
-            var type = request.params.type;
-            var queryObj = {};
+            console.log("images DELETE");
+            var req = request.params;
+            var resp = {
+                data: {}
+            };
 
-            switch (type) {
+            /*switch (type) {
                 case "own":
                     queryObj.ownImages = true;
                     break;
@@ -27,29 +30,59 @@ exports.register = function(server, options, next) {
                 case "dp":
                     queryObj.dp = true;
                     break;
-            }
-            db.images.find({
-                _id: mongojs.ObjectId(id)
-            }, queryObj, function(err, docs) {
-                var resp = {
-                  data: {}
-                };
+            }*/
+
+            db.images.remove({
+                _id: mongojs.ObjectId(req.id)
+            }, function(err, result) {
 
                 if (err) {
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
                 }
-
                 resp.status = "SUCCESS";
-                if (!docs.type) {
-                  resp.data.base64 = [];
-                  return reply(resp);
-                }
-                var resp = {
-                    data: {}
-                };
+                resp.messages = "Removed.";
+                reply(resp);
+            });
+        }
+    });
 
-                console.log("resp: " + JSON.stringify(resp));
-                resp.data.base64 = docs.type;
+    server.route({
+        method: 'GET',
+        path: '/images/{type}/{id}',
+        handler: function(request, reply) {
+            console.log("images GET");
+            var req = request.params;
+            var resp = {
+                data: {}
+            };
+
+            /*switch (type) {
+                case "own":
+                    queryObj.ownImages = true;
+                    break;
+                case "home":
+                    queryObj.homeImages = true;
+                    break;
+                case "dp":
+                    queryObj.dp = true;
+                    break;
+            }*/
+            db.images.find({
+                _uid: req.id,
+                type: req.type
+            }, function(err, docs) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+                console.log("docs: " + util.inspect(docs, false, null));
+                resp.status = "SUCCESS";
+                if (!docs) {
+                    resp.data.images = {};
+                    return reply(resp);
+                }
+
+                resp.data.images = docs;
+                //resp.data.base64 = docs.type;
                 return reply(resp);
                 //reply(docs);
             });
@@ -60,46 +93,62 @@ exports.register = function(server, options, next) {
         method: 'POST',
         path: '/images',
         handler: function(request, reply) {
-          var req = request.payload.data;
+            console.info("images POST");
+            var req = request.payload.data;
             var resp = {
                 data: {}
             };
             var queryObj = {};
-
-            switch (req.type) {
-                case "own":
-                    queryObj.ownImages = true;
-                    break;
-                case "home":
-                    queryObj.homeImages = true;
-                    break;
-                case "dp":
-                    queryObj.dp = true;
-                    break;
+            var images = [];
+            var bulk = db.images.initializeOrderedBulkOp();
+            for (var i = 0, len = req.base64.length; i < len; i++) {
+                bulk.insert({
+                    _uid: req._id,
+                    type: req.type,
+                    base64: req.base64[i]
+                });
+                /*images[i] = {
+                    _uid: req._id,
+                    type: req.type,
+                    base64: req.images[i]
+                };*/
             }
 
-            db.images.update({
-                _id: mongojs.ObjectId(request.payload.data._id)
-            }, {
-                $set: {
-                    ownImgs: request.payload.data.ownImgs
-                }
-            }, function(err, result) {
+            bulk.execute(function(err, result) {
+                    console.log('Done!')
+                    if (err) {
+                        console.error("err: " + util.inspect(err, false, null));
+                        return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                    }
+                    console.log("result: " + util.inspect(result, false, null));
+
+                    resp.status = "SUCCESS";
+                    resp.messages = "Added";
+                    return reply(resp);
+                })
+                /*switch (req.type) {
+                    case "own":
+                        queryObj.ownImages = req.base64;
+                        break;
+                    case "home":
+                        queryObj.homeImages = req.base64;
+                        break;
+                    case "dp":
+                        queryObj.dp = req.base64;
+                        break;
+                }*/
+
+            /*db.images.insert(images, function(err, result) {
                 if (err) {
+                    console.error("err: " + util.inspect(err, false, null));
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
                 }
-
-                if (result.n === 0) {
-                    return reply(Boom.notFound());
-                }
+                console.log("result: " + util.inspect(result, false, null));
 
                 resp.status = "SUCCESS";
                 resp.messages = "Added";
                 return reply(resp);
-
-                //reply().code(204);
-            });
-
+            });*/
         }
     });
 
@@ -125,8 +174,6 @@ exports.register = function(server, options, next) {
                 resp.status = "SUCCESS";
                 if (!docs.ownImgs) {
                     resp.messages = "No images.";
-                    var ownImgs = [];
-                    resp.data.base64 = docs[0].ownImgs;
                     return reply(resp);
                 }
 

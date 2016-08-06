@@ -10,10 +10,9 @@ exports.register = function(server, options, next) {
     const db = server.app.db;
     const mongojs = server.app.mongojs;
 
-    // Get requests
     server.route({
         method: 'GET',
-        path: '/requests/{id}',
+        path: '/requestsout/{id}',
         handler: function(request, reply) {
             var resp = {
                 data: {}
@@ -22,7 +21,61 @@ exports.register = function(server, options, next) {
             db.users.findOne({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
-                interestIn: true
+                interestOut: true
+            }, function(err, doc) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                if (!doc.interestOut || doc.interestOut.length === 0) {
+                    resp.status = "SUCCESS";
+                    resp.messages = "No requests.";
+                    resp.data.profiles = [];
+                    return reply(resp);
+                }
+
+                var queryObj = {};
+                var interestOutIds = [];
+
+                for (var i = 0; i < doc.interestOut.length; i++) {
+                    interestOutIds.push(mongojs.ObjectId(doc.interestOut[i]));
+                }
+                queryObj._id = {
+                    $in: interestOutIds
+                };
+
+                db.users.find(queryObj, {
+                    fullName: true
+                }, function(err, docs) {
+                    if (err) {
+                        return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                    }
+
+                    resp.status = "SUCCESS";
+                    resp.messages = "Requests.";
+                    resp.data.profiles = docs;
+                    return reply(resp);
+
+                    //reply().code(204);
+                });
+            });
+
+        }
+    });
+
+    // Get requests
+    server.route({
+        method: 'GET',
+        path: '/requestsin/{id}',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+
+            db.users.findOne({
+                _id: mongojs.ObjectId(request.params.id)
+            }, {
+                nterestIn: true
             }, function(err, doc) {
                 if (err) {
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
@@ -196,10 +249,10 @@ exports.register = function(server, options, next) {
             };
             const user = request.payload.data;
             db.users.update({
-                _id: mongojs.ObjectId(request.payload.data._id)
+                _id: mongojs.ObjectId(user._id)
             }, {
                 $pull: {
-                    interestOut: request.payload.data.id
+                    interestOut: user.id
                 }
             }, function(err, result) {
                 if (err) {
@@ -209,10 +262,10 @@ exports.register = function(server, options, next) {
                 console.log("result: " + result);
 
                 db.users.update({
-                    _id: mongojs.ObjectId(request.payload.data.id)
+                    _id: mongojs.ObjectId(user.id)
                 }, {
                     $pull: {
-                        interestIn: request.payload.data._id
+                        interestIn: user._id
                     }
                 }, function(err, result) {
                     if (err) {
@@ -282,10 +335,10 @@ exports.register = function(server, options, next) {
             };
             const user = request.payload.data;
             db.users.update({
-                _id: mongojs.ObjectId(request.payload.data._id)
+                _id: mongojs.ObjectId(user._id)
             }, {
                 $pull: {
-                    shortlisted: request.payload.data.id
+                    shortlisted: user.id
                 }
             }, function(err, result) {
                 if (err) {
@@ -418,25 +471,36 @@ exports.register = function(server, options, next) {
             db.users.findOne({
                 _id: mongojs.ObjectId(request.params.id)
             }, {
-                shortlisted: true
+                shortlisted: true,
+                interestOut: true
             }, (err, doc) => {
 
                 if (err) {
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
                 }
-
+                console.log("doc: " + util.inspect(doc, false, null));
                 var queryObj = {};
                 var shortlistedIds = [];
+                var interestOutIds = [];
 
                 if (doc) {
                     if (doc.shortlisted !== undefined) {
                         for (var i = 0; i < doc.shortlisted.length; i++) {
                             shortlistedIds.push(mongojs.ObjectId(doc.shortlisted[i]));
                         }
-                        queryObj._id = {
-                            $nin: shortlistedIds
-                        };
                     }
+                    console.log("shortlistedIds: " + util.inspect(shortlistedIds, false, null));
+
+                    if (doc.interestOut !== undefined) {
+                        for (var i = 0; i < doc.interestOut.length; i++) {
+                            interestOutIds.push(mongojs.ObjectId(doc.interestOut[i]));
+                        }
+                    }
+                    console.log("interestOutIds: " + util.inspect(interestOutIds, false, null));
+
+                    queryObj._id = {
+                        $nin: shortlistedIds.concat(interestOutIds)
+                    };
                 }
 
                 db.users.find(queryObj, {
@@ -449,8 +513,6 @@ exports.register = function(server, options, next) {
                     }
                     resp.status = "SUCCESS";
                     resp.data.profiles = docs;
-                    console.log("NEW");
-                    console.log(util.inspect(docs, false, null));
                     //console.log("NEW: %j", docs);
                     reply(resp);
                 });
@@ -580,6 +642,9 @@ exports.register = function(server, options, next) {
                     user.isActive = false;
                     user.isDeleted = false;
                     user.isVerified = false;
+                    user.isPaid = false;
+                    user.isCompleted = false;
+
                     db.users.save(user, (err, result) => {
                         if (err) {
                             return reply(Boom.wrap(err, 'Internal MongoDB error'));
@@ -666,29 +731,33 @@ exports.register = function(server, options, next) {
         method: 'POST',
         path: '/signin',
         handler: function(request, reply) {
+            console.info("signin POST");
+            var req = request.payload.data;
             var resp = {
                 data: {}
             };
             db.users.findOne({
-                phone: request.payload.data.phone,
-                password: request.payload.data.password
+                phone: req.phone,
+                password: req.password
+            }, {
+                phone: true,
+                fullName: true
             }, (err, doc) => {
                 if (err) {
+                    console.error("err: " + util.inspect(err, false, null));
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
                 }
+
+                console.log("doc: " + util.inspect(doc, false, null));
 
                 if (!doc) {
                     resp.status = "ERROR";
                     resp.messages = "No auth";
-                    //return reply(Boom.notFound());
                     return reply(resp);
                 }
 
                 resp.status = "SUCCESS";
-                resp.data = {
-                    _id: doc._id,
-                    phobe: doc.phone
-                };
+                resp.data = doc;
 
                 reply(resp);
             });

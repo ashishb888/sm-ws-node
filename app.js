@@ -71,7 +71,7 @@ const opts = { file: {
     accessFormat: ':time :level :method :status :url'
   },
   console: {
-    color: false
+    color: true
   }/*,
   syslog: {
     host: 'localhost',
@@ -92,13 +92,15 @@ const opts = { file: {
 
 
 var logger = require('bucker').createLogger({ access: './logs/access.log', error: './logs/error.log', app: { file: './logs/app.log' }, console: true }, module);
-logger.info('informational message');
+/*logger.info('informational message');
 logger.debug('debug message');
 logger.warn('warning');
 logger.error('error');
 logger.log('also works for informational messsages');
 logger.module('something_else').info('and you can override the module name temporarily if you want');
 logger.tags(['showing', 'off']).info('and we also support tags now');
+*/
+server.app.logger = logger;
 
 const options = {
     ops: {
@@ -118,7 +120,8 @@ const options = {
             args: [{response: '*', log: '*'}]
         }, {
             module: 'good-squeeze',
-            name: 'SafeJson'
+            name: 'SafeJson',
+            args: [{response: '*', log: '*'}]
         }, {
             module: 'good-file',
             args: ['./logs/good.log']
@@ -128,6 +131,14 @@ const options = {
 
 //Connect to db
 server.app.db = mongojs('smdb', ['users', 'images']);
+
+server.app.db.on('error', function (err) {
+    console.log('database error', err)
+})
+
+server.app.db.on('connect', function () {
+    console.log('database connected')
+})
 
 // Use mongojs throughout the app
 server.app.mongojs = mongojs;
