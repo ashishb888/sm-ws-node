@@ -11,6 +11,37 @@ exports.register = function(server, options, next) {
     const mongojs = server.app.mongojs;
 
     server.route({
+        method: 'POST',
+        path: '/images/dp',
+        handler: function(request, reply) {
+            console.info("images dp POST");
+            var req = request.payload.data;
+            var resp = {
+                data: {}
+            };
+
+            db.images.update({
+                _uid: req._id,
+                type: 'dp'
+            }, {
+                $set: {
+                    base64: req.base64[0]
+                }
+            }, {
+                upsert: true
+            }, function(err, result) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+                resp.messages = "Uploaded.";
+                reply(resp);
+            });
+        }
+    });
+
+    server.route({
         method: 'DELETE',
         path: '/images/{id}',
         handler: function(request, reply) {
@@ -107,36 +138,31 @@ exports.register = function(server, options, next) {
                     type: req.type,
                     base64: req.base64[i]
                 });
-                /*images[i] = {
-                    _uid: req._id,
-                    type: req.type,
-                    base64: req.images[i]
-                };*/
             }
 
             bulk.execute(function(err, result) {
-                    console.log('Done!')
-                    if (err) {
-                        console.error("err: " + util.inspect(err, false, null));
-                        return reply(Boom.wrap(err, 'Internal MongoDB error'));
-                    }
-                    console.log("result: " + util.inspect(result, false, null));
+                console.log('Done!')
+                if (err) {
+                    console.error("err: " + util.inspect(err, false, null));
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+                console.log("result: " + util.inspect(result, false, null));
 
-                    resp.status = "SUCCESS";
-                    resp.messages = "Added";
-                    return reply(resp);
-                })
-                /*switch (req.type) {
-                    case "own":
-                        queryObj.ownImages = req.base64;
-                        break;
-                    case "home":
-                        queryObj.homeImages = req.base64;
-                        break;
-                    case "dp":
-                        queryObj.dp = req.base64;
-                        break;
-                }*/
+                resp.status = "SUCCESS";
+                resp.messages = "Added";
+                return reply(resp);
+            });
+            /*switch (req.type) {
+                case "own":
+                    queryObj.ownImages = req.base64;
+                    break;
+                case "home":
+                    queryObj.homeImages = req.base64;
+                    break;
+                case "dp":
+                    queryObj.dp = req.base64;
+                    break;
+            }*/
 
             /*db.images.insert(images, function(err, result) {
                 if (err) {

@@ -810,7 +810,7 @@ exports.register = function(server, options, next) {
 
                 resp.status = "SUCCESS";
 
-                if (!doc.pinfo) {
+                if (!doc || !doc.pinfo) {
                     resp.messages = "No data found.";
                     return reply(resp);
                 }
