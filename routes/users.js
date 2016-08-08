@@ -715,7 +715,14 @@ exports.register = function(server, options, next) {
 
             db.users.findOne({
                 _id: mongojs.ObjectId(req.id)
-            }, {}, (err, doc) => {
+            }, {
+              basicDetails: true,
+              religiousInfo: true,
+              professionInfo: true,
+              locationInfo: true,
+              familyInfo: true,
+              dp: true
+            }, (err, doc) => {
 
                 if (err) {
                     return reply(Boom.wrap(err, 'Internal MongoDB error'));
@@ -838,6 +845,7 @@ exports.register = function(server, options, next) {
                     req.isVerified = false;
                     req.isPaid = false;
                     req.isCompleted = false;
+                    req.isDP = false;
 
                     db.users.save(req, (err, result) => {
                         if (err) {
@@ -935,7 +943,8 @@ exports.register = function(server, options, next) {
                 password: req.password
             }, {
                 phone: true,
-                basicDetails: true
+                basicDetails: true,
+                isDP: true
             }, (err, doc) => {
                 if (err) {
                     console.error("err: " + util.inspect(err, false, null));

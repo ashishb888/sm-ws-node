@@ -11,6 +11,33 @@ exports.register = function(server, options, next) {
     const mongojs = server.app.mongojs;
 
     server.route({
+        method: 'GET',
+        path: '/images/dp/{id}',
+        handler: function(request, reply) {
+            console.info("images dp POST");
+            var req = request.params;
+            var resp = {
+                data: {}
+            };
+
+            db.users.findOne({
+                _id: mongojs.ObjectId(req.id)
+            }, {
+                dp: true
+            }, function(err, result) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+                resp.messages = "DP";
+                resp.data.dp = result;
+                reply(resp);
+            });
+        }
+    });
+
+    server.route({
         method: 'POST',
         path: '/images/dp',
         handler: function(request, reply) {
@@ -20,12 +47,11 @@ exports.register = function(server, options, next) {
                 data: {}
             };
 
-            db.images.update({
-                _uid: req._id,
-                type: 'dp'
+            db.users.update({
+                _id: mongojs.ObjectId(req._id)
             }, {
                 $set: {
-                    base64: req.base64[0]
+                    dp: req.base64[0]
                 }
             }, {
                 upsert: true
