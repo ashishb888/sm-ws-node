@@ -185,10 +185,10 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
+
             db.images.find({
-                _id: mongojs.ObjectId(request.params.id)
+                _uid: request.params.id
             }, {
-                ownImgs: true
             }, function(err, docs) {
                 var resp = {
                     data: {}
@@ -198,16 +198,15 @@ exports.register = function(server, options, next) {
                 }
 
                 resp.status = "SUCCESS";
-                if (!docs.ownImgs) {
+                if (!docs) {
                     resp.messages = "No images.";
                     return reply(resp);
                 }
 
                 resp.messages = "Images";
                 console.log("resp: " + JSON.stringify(resp));
-                resp.data.base64 = docs[0].ownImgs;
-                return reply(resp);
-                //reply(docs);
+                resp.data.images = docs;
+                reply(resp);
             });
         }
     });
