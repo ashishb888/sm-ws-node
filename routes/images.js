@@ -51,7 +51,8 @@ exports.register = function(server, options, next) {
                 _id: mongojs.ObjectId(req._id)
             }, {
                 $set: {
-                    dp: req.base64[0]
+                    dp: req.base64[0],
+                    isDP: req.isDP
                 }
             }, {
                 upsert: true

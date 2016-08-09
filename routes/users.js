@@ -174,7 +174,8 @@ exports.register = function(server, options, next) {
                 };
 
                 db.users.find(queryObj, {
-                    fullName: true
+                    basicDetails: true,
+                    dp: true
                 }, function(err, docs) {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
@@ -228,7 +229,8 @@ exports.register = function(server, options, next) {
                 };
 
                 db.users.find(queryObj, {
-                    fullName: true
+                  basicDetails: true,
+                  dp: true
                 }, function(err, docs) {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
@@ -577,7 +579,8 @@ exports.register = function(server, options, next) {
                 }*/
 
                 db.users.find(queryObj, {
-                    fullName: true
+                    basicDetails: true,
+                    dp: true
                 }, function(err, docs) {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
@@ -793,7 +796,9 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc) {
-                    return reply(Boom.notFound());
+                  resp.status = "ERROR";
+                  resp.messages = "Not found";
+                    return reply(resp);
                 }
 
                 resp.status = "SUCCESS";
