@@ -12,12 +12,29 @@ exports.register = function(server, options, next) {
 
     server.route({
         method: 'POST',
+        path: '/otp',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+
+            var req = request.payload.data;
+
+            // Add OTP varification code
+            resp.status = "SUCCESS";
+            resp.messages = "Signed up!";
+        }
+    });
+
+    server.route({
+        method: 'POST',
         path: '/religious',
         handler: function(request, reply) {
             var resp = {
                 data: {}
             };
-            const req = request.payload.data;
+            var req = request.payload.data;
+            delete req.tobLocal;
 
             db.users.update({
                 _id: mongojs.ObjectId(req._id)
@@ -111,9 +128,9 @@ exports.register = function(server, options, next) {
             var resp = {
                 data: {}
             };
-            const req = request.payload.data;
-
-            req.basicDetails.dob = new Date(req.basicDetails.dob);
+            var req = request.payload.data;
+            delete request.payload.data.basicDetails.dobLocal;
+            //req.basicDetails.dob = new Date(req.basicDetails.dob);
             db.users.update({
                 _id: mongojs.ObjectId(req._id)
             }, {
@@ -949,7 +966,9 @@ exports.register = function(server, options, next) {
             }, {
                 phone: true,
                 basicDetails: true,
-                isDP: true
+                isDP: true,
+                dp: true,
+                userId: true
             }, (err, doc) => {
                 if (err) {
                     console.error("err: " + util.inspect(err, false, null));
