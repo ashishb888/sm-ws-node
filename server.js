@@ -131,7 +131,7 @@ const options = {
 };
 
 //Connect to db
-server.app.db = mongojs('smdb-10aug-2', ['users', 'images']);
+server.app.db = mongojs('smdb-11aug', ['users', 'images']);
 
 server.app.db.on('error', function (err) {
     console.log('database error', err)
