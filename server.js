@@ -2,6 +2,7 @@
 
 const Hapi = require('hapi');
 const mongojs = require('mongojs');
+const moment = require('moment');
 
 // Create a server with a host and port
 const server = new Hapi.Server();
@@ -130,7 +131,7 @@ const options = {
 };
 
 //Connect to db
-server.app.db = mongojs('smdb-test', ['users', 'images']);
+server.app.db = mongojs('smdb-10aug-2', ['users', 'images']);
 
 server.app.db.on('error', function (err) {
     console.log('database error', err)
@@ -142,6 +143,9 @@ server.app.db.on('connect', function () {
 
 // Use mongojs throughout the app
 server.app.mongojs = mongojs;
+
+// Use moment
+server.app.moment = moment;
 
 // Global response object
 server.app.resp = {

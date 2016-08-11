@@ -9,6 +9,120 @@ exports.register = function(server, options, next) {
 
     const db = server.app.db;
     const mongojs = server.app.mongojs;
+    const moment = server.app.moment;
+
+    server.route({
+        method: 'POST',
+        path: '/profilepreference',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+            var req = request.payload.data;
+
+            db.users.update({
+                _id: mongojs.ObjectId(req._id)
+            }, {
+                $set: {
+                    profilePreference: req.profilePreference
+                }
+            }, function(err, result) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                if (result.n === 0) {
+                    return reply(Boom.notFound());
+                }
+
+                resp.status = "SUCCESS";
+                resp.messages = "Updated profile preference data.";
+                reply(resp);
+            });
+
+        }
+    });
+
+    server.route({
+        method: 'POST',
+        path: '/filterprofiles',
+        handler: function(request, reply) {
+            var resp = {
+                data: {}
+            };
+            var req = request.payload.data;
+            var queryObj = {
+                basicDetails: {}
+            };
+
+            if (req.minAge.toLowerCase() != "any")
+                queryObj.basicDetails.minAge = req.minAge;
+
+            if (req.maxAge.toLowerCase() != "any")
+                queryObj.basicDetails.maxAge = req.maxAge;
+
+            if (req.minHeight.toLowerCase() != "any") {
+                var heightSplit = req.minHeight.split(" ");
+                var feet = parseInt(heightSplit[0]);
+                var inches = 0;
+
+                if (heightSplit.length > 2) {
+                    inches = parseInt(heightSplit[2]);
+                }
+
+                queryObj.basicDetails.height = {
+                    feet: feet,
+                    inches: inches
+                };
+            }
+
+
+            if (req.maxHeight.toLowerCase() != "any") {
+                var heightSplit = req.maxHeight.split(" ");
+                var feet = parseInt(heightSplit[0]);
+                var inches = 0;
+
+                if (heightSplit.length > 2) {
+                    inches = parseInt(heightSplit[2]);
+                }
+
+                queryObj.basicDetails.height = {
+                    feet: feet,
+                    inches: inches
+                };
+            }
+
+            if (req.complexion.toLowerCase() != "any")
+                queryObj.basicDetails.complexion = req.complexion;
+
+            if (req.bodyType.toLowerCase() != "any")
+                queryObj.basicDetails.bodyType = req.bodyType;
+
+            if (req.subCaste.toLowerCase() != "any")
+                queryObj.basicDetails.subCaste = req.subCaste;
+
+
+            db.users.findOne(queryObj, {
+                religiousInfo: true
+            }, function(err, docs) {
+                if (err) {
+                    return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                }
+
+                resp.status = "SUCCESS";
+
+                if (!docs || !docs.religiousInfo) {
+                    resp.messages = "No data found.";
+                    return reply(resp);
+                }
+
+                resp.messages = "Data found.";
+                resp.data.religiousInfo = docs.religiousInfo;
+                reply(resp);
+            });
+
+        }
+    });
 
     server.route({
         method: 'POST',
@@ -34,7 +148,7 @@ exports.register = function(server, options, next) {
                 data: {}
             };
             var req = request.payload.data;
-            delete req.tobLocal;
+            delete req.religiousInfo.tobLocal;
 
             db.users.update({
                 _id: mongojs.ObjectId(req._id)
@@ -192,10 +306,16 @@ exports.register = function(server, options, next) {
 
                 db.users.find(queryObj, {
                     basicDetails: true,
-                    dp: true
+                    dp: true,
+                    locationInfo: true
                 }, function(err, docs) {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                    }
+
+                    for (var i = 0, len = docs.length; i < len; i++) {
+                        if (docs[i].basicDetails)
+                            docs[i].basicDetails.age = moment().diff(docs[i].basicDetails.dob, "years");
                     }
 
                     resp.status = "SUCCESS";
@@ -246,11 +366,17 @@ exports.register = function(server, options, next) {
                 };
 
                 db.users.find(queryObj, {
-                  basicDetails: true,
-                  dp: true
+                    basicDetails: true,
+                    dp: true,
+                    locationInfo: true
                 }, function(err, docs) {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
+                    }
+
+                    for (var i = 0, len = docs.length; i < len; i++) {
+                        if (docs[i].basicDetails)
+                            docs[i].basicDetails.age = moment().diff(docs[i].basicDetails.dob, "years");
                     }
 
                     resp.status = "SUCCESS";
@@ -597,21 +723,24 @@ exports.register = function(server, options, next) {
 
                 db.users.find(queryObj, {
                     basicDetails: true,
+                    locationInfo: true,
                     dp: true
                 }, function(err, docs) {
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
                     }
 
+                    for (var i = 0, len = docs.length; i < len; i++) {
+                        if (docs[i].basicDetails)
+                            docs[i].basicDetails.age = moment().diff(docs[i].basicDetails.dob, "years");
+                    }
+
                     resp.status = "SUCCESS";
                     resp.messages = "Shortlisted profiles.";
                     resp.data.profiles = docs;
-                    return reply(resp);
-
-                    //reply().code(204);
+                    reply(resp);
                 });
             });
-
         }
     });
 
@@ -667,8 +796,8 @@ exports.register = function(server, options, next) {
                             }
                         }, {
                             "basicDetails.gender": {
-                                    $ne: doc.basicDetails.gender
-                                }
+                                $ne: doc.basicDetails.gender
+                            }
 
                         }]
                     };
@@ -681,12 +810,19 @@ exports.register = function(server, options, next) {
                 db.users.find(queryObj, {
                     basicDetails: true,
                     userId: true,
-                    dp: true
+                    dp: true,
+                    locationInfo: true
                 }, (err, docs) => {
 
                     if (err) {
                         return reply(Boom.wrap(err, 'Internal MongoDB error'));
                     }
+
+                    for (var i = 0, len = docs.length; i < len; i++) {
+                        if (docs[i].basicDetails)
+                            docs[i].basicDetails.age = moment().diff(docs[i].basicDetails.dob, "years");
+                    }
+
                     resp.status = "SUCCESS";
                     resp.data.profiles = docs;
                     //console.log("NEW: %j", docs);
@@ -736,12 +872,12 @@ exports.register = function(server, options, next) {
             db.users.findOne({
                 _id: mongojs.ObjectId(req.id)
             }, {
-              basicDetails: true,
-              religiousInfo: true,
-              professionInfo: true,
-              locationInfo: true,
-              familyInfo: true,
-              dp: true
+                basicDetails: true,
+                religiousInfo: true,
+                professionInfo: true,
+                locationInfo: true,
+                familyInfo: true,
+                dp: true
             }, (err, doc) => {
 
                 if (err) {
@@ -751,6 +887,9 @@ exports.register = function(server, options, next) {
                 if (!doc) {
                     return reply(Boom.notFound());
                 }
+
+                if (doc.basicDetails)
+                    doc.basicDetails.age = moment().diff(doc.basicDetails.dob, "years");
 
                 resp.status = "SUCCESS";
                 resp.data.profile = doc;
@@ -806,6 +945,14 @@ exports.register = function(server, options, next) {
             console.log("request.params.id:" + userId);
             db.users.findOne({
                 userId: userId
+            }, {
+                basicDetails: true,
+                dp: true,
+                userId: true,
+                religiousInfo: true,
+                professionInfo: true,
+                locationInfo: true,
+                familyInfo: true
             }, (err, doc) => {
 
                 if (err) {
@@ -813,10 +960,12 @@ exports.register = function(server, options, next) {
                 }
 
                 if (!doc) {
-                  resp.status = "ERROR";
-                  resp.messages = "Not found";
+                    resp.status = "ERROR";
+                    resp.messages = "Not found";
                     return reply(resp);
                 }
+                if (doc.basicDetails)
+                    doc.basicDetails.age = moment().diff(doc.basicDetails.dob, "years");
 
                 resp.status = "SUCCESS";
                 resp.data.profile = doc;
