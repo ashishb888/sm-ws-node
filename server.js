@@ -3,26 +3,31 @@
 const Hapi = require('hapi');
 const mongojs = require('mongojs');
 const moment = require('moment');
+const util = require('util');
 
 // Create a server with a host and port
 const server = new Hapi.Server();
 
 var people = { // our "users database"
-    1: {
-      id: 1,
-      name: 'Jen Jones'
-    }
+  1: {
+    id: 1,
+    name: 'Jen Jones'
+  }
 };
 
-var validate = function (decoded, request, callback) {
+var validate = function(decoded, request, callback) {
 
-    // do your checks to see if the person is valid
-    if (!people[decoded.id]) {
-      return callback(null, false);
-    }
-    else {
-      return callback(null, true);
-    }
+  // do your checks to see if the person is valid
+  console.log("request.headers.authorization Validate: " + request.headers.authorization);
+  console.log("decoded: " + util.inspect(decoded, false, null));
+  
+  /*if (!people[decoded.id]) {
+    return callback(null, false);
+  }
+  else {
+    return callback(null, true);
+  }*/
+  callback(null, true);
 };
 
 /*server.register(require('hapi-auth-jwt2'), function (err) {
@@ -56,16 +61,73 @@ var validate = function (decoded, request, callback) {
     ]);
 });
 */
+
+
+
 server.connection({
   /*host:"localhost",*/
-  port: 3000
-    /*,
-      options: {
-        cors: true
-      }*/
+  port: 3000,
+  routes: {
+    cors: true
+  }
+  /*,
+    options: {
+      cors: true
+    }*/
 });
 
-const opts = { file: {
+server.register(require('hapi-auth-jwt2'), function(err) {
+
+  if (err) {
+    console.log(err);
+  }
+
+  server.auth.strategy('jwt', 'jwt', {
+    key: 'NeverShareYourSecret', // Never Share your secret key
+    validateFunc: validate, // validate function defined above
+    verifyOptions: {
+      algorithms: ['HS256'],
+      tokenType: "bearer",
+      complete: true
+    } // pick a strong algorithm
+  });
+
+  server.auth.default('jwt');
+
+  server.route([{
+    method: "GET",
+    path: "/",
+    config: {
+      auth: false
+    },
+    handler: function(request, reply) {
+      reply({
+        text: 'Token not required'
+      });
+    }
+  }, {
+    method: 'GET',
+    path: '/restricted',
+    config: {
+      auth: 'jwt'
+    },
+    handler: function(request, reply) {
+      console.log("request.headers.authorization: " + request.headers
+        .authorization);
+      console.log("equest.auth.token: " + util.inspect(request.auth
+        .token, false, null));
+      console.log("request.auth.credentials: " + util.inspect(
+        request.auth.credentials, false, null));
+      reply({
+          text: 'You used a Token!'
+        })
+        .header("Authorization", request.headers.authorization);
+    }
+  }]);
+});
+
+const opts = {
+  file: {
     filename: './logs/sm-ws.log',
     format: ':level :time :data',
     timestamp: 'HH:mm:ss',
@@ -73,26 +135,34 @@ const opts = { file: {
   },
   console: {
     color: true
-  }/*,
-  syslog: {
-    host: 'localhost',
-    port: 514,
-    facility: 18
-  },
-  logstash: {
-    redis: true, // send as redis pubsub messages
-    // udp: true, // or send directly over UDP, *NOTE* you can only use one or the other, never both
-    host: '127.0.0.1', // defaults to localhost
-    port: 12345, // defaults to 6379 for redis, 9999 for udp
-    key: 'bucker_logs', // defaults to 'bucker', this is only used for the redis transport
-    channel: true, // use redis pubsub
-    list: false, // use a redis list *NOTE* if channel is false, list usage is forced
-    source_host: 'bacon.com' // this sets the @source_host field in logstash
-  }*/
+  }
+  /*,
+    syslog: {
+      host: 'localhost',
+      port: 514,
+      facility: 18
+    },
+    logstash: {
+      redis: true, // send as redis pubsub messages
+      // udp: true, // or send directly over UDP, *NOTE* you can only use one or the other, never both
+      host: '127.0.0.1', // defaults to localhost
+      port: 12345, // defaults to 6379 for redis, 9999 for udp
+      key: 'bucker_logs', // defaults to 'bucker', this is only used for the redis transport
+      channel: true, // use redis pubsub
+      list: false, // use a redis list *NOTE* if channel is false, list usage is forced
+      source_host: 'bacon.com' // this sets the @source_host field in logstash
+    }*/
 };
 
 
-var logger = require('bucker').createLogger({ access: './logs/access.log', error: './logs/error.log', app: { file: './logs/app.log' }, console: true }, module);
+var logger = require('bucker').createLogger({
+  access: './logs/access.log',
+  error: './logs/error.log',
+  app: {
+    file: './logs/app.log'
+  },
+  console: true
+}, module);
 /*logger.info('informational message');
 logger.debug('debug message');
 logger.warn('warning');
@@ -104,41 +174,50 @@ logger.tags(['showing', 'off']).info('and we also support tags now');
 server.app.logger = logger;
 
 const options = {
-    ops: {
-        interval: 1000
-    },
-    reporters: {
-        console: [{
-            module: 'good-squeeze',
-            name: 'Squeeze',
-            args: [{ log: '*', response: '*' }]
-        }, {
-            module: 'good-console'
-        }, 'stdout'],
-        file: [{
-            module: 'good-squeeze',
-            name: 'Squeeze',
-            args: [{response: '*', log: '*'}]
-        }, {
-            module: 'good-squeeze',
-            name: 'SafeJson',
-            args: [{response: '*', log: '*'}]
-        }, {
-            module: 'good-file',
-            args: ['./logs/good.log']
-        }]
-    }
+  ops: {
+    interval: 1000
+  },
+  reporters: {
+    console: [{
+      module: 'good-squeeze',
+      name: 'Squeeze',
+      args: [{
+        log: '*',
+        response: '*'
+      }]
+    }, {
+      module: 'good-console'
+    }, 'stdout'],
+    file: [{
+      module: 'good-squeeze',
+      name: 'Squeeze',
+      args: [{
+        response: '*',
+        log: '*'
+      }]
+    }, {
+      module: 'good-squeeze',
+      name: 'SafeJson',
+      args: [{
+        response: '*',
+        log: '*'
+      }]
+    }, {
+      module: 'good-file',
+      args: ['./logs/good.log']
+    }]
+  }
 };
 
 //Connect to db
 server.app.db = mongojs('smdb-11aug', ['users', 'images']);
 
-server.app.db.on('error', function (err) {
-    console.log('database error', err)
+server.app.db.on('error', function(err) {
+  console.log('database error', err)
 })
 
-server.app.db.on('connect', function () {
-    console.log('database connected')
+server.app.db.on('connect', function() {
+  console.log('database connected')
 })
 
 // Use mongojs throughout the app
@@ -150,18 +229,17 @@ server.app.moment = moment;
 // Global response object
 server.app.resp = {
   status: "SUCCESS",
-  data: {
-  }
+  data: {}
 };
 
 // Serve default route
-server.route({
+/*server.route({
   method: 'GET',
   path: '/',
   handler: function(request, reply) {
     reply('Hello, world!');
   }
-});
+});*/
 
 /*const table = server.connections[0].table();
 console.log("table: " + table);*/
@@ -169,11 +247,10 @@ console.log("table: " + table);*/
 //Load plugins and start server
 server.register([
   require('./routes/users'),
-  require('./routes/images'),
-  {
+  require('./routes/images'), {
     register: require('good'),
     options: options
-}
+  }
 ], (err) => {
 
   if (err) {

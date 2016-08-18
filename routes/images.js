@@ -12,7 +12,7 @@ exports.register = function(server, options, next) {
 
     server.route({
         method: 'GET',
-        path: '/images/dp/{id}',
+        path: '/images/dp',
         handler: function(request, reply) {
             console.info("images dp POST");
             var req = request.params;
@@ -21,7 +21,7 @@ exports.register = function(server, options, next) {
             };
 
             db.users.findOne({
-                _id: mongojs.ObjectId(req.id)
+                _id: mongojs.ObjectId(request.auth.credentials._id)
             }, {
                 dp: true
             }, function(err, result) {
@@ -48,7 +48,7 @@ exports.register = function(server, options, next) {
             };
 
             db.users.update({
-                _id: mongojs.ObjectId(req._id)
+                _id: mongojs.ObjectId(request.auth.credentials._id)
             }, {
                 $set: {
                     dp: req.base64[0],
@@ -106,7 +106,7 @@ exports.register = function(server, options, next) {
 
     server.route({
         method: 'GET',
-        path: '/images/{type}/{id}',
+        path: '/images/{type}',
         handler: function(request, reply) {
             console.log("images GET");
             var req = request.params;
@@ -126,7 +126,7 @@ exports.register = function(server, options, next) {
                     break;
             }*/
             db.images.find({
-                _uid: req.id,
+                _uid: request.auth.credentials._id,
                 type: req.type
             }, function(err, docs) {
                 if (err) {
@@ -161,7 +161,7 @@ exports.register = function(server, options, next) {
             var bulk = db.images.initializeOrderedBulkOp();
             for (var i = 0, len = req.base64.length; i < len; i++) {
                 bulk.insert({
-                    _uid: req._id,
+                    _uid: request.auth.credentials._id,
                     type: req.type,
                     base64: req.base64[i]
                 });
@@ -207,14 +207,14 @@ exports.register = function(server, options, next) {
 
     server.route({
         method: 'GET',
-        path: '/images/{id}',
+        path: '/images',
         handler: function(request, reply) {
             var resp = {
                 data: {}
             };
 
             db.images.find({
-                _uid: request.params.id
+                _uid: request.auth.credentials._id
             }, {
             }, function(err, docs) {
                 var resp = {
