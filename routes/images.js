@@ -52,7 +52,7 @@ exports.register = function(server, options, next) {
             }, {
                 $set: {
                     dp: req.base64[0],
-                    isDP: req.isDP
+                    isDP: true
                 }
             }, {
                 upsert: true

@@ -14,6 +14,30 @@ exports.register = function(server, options, next) {
   const moment = server.app.moment;
 
   server.route({
+    method: 'GET',
+    path: '/flags',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+
+      db.users.findOne({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        isDP: true
+      }, function(err, doc) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        resp.status = "SUCCESS";
+        resp.data = doc;
+        reply(resp);
+      });
+    }
+  });
+
+  server.route({
     method: 'POST',
     path: '/profilepreference',
     handler: function(request, reply) {
@@ -41,7 +65,6 @@ exports.register = function(server, options, next) {
         resp.messages = "Updated profile preference data.";
         reply(resp);
       });
-
     }
   });
 
@@ -59,7 +82,183 @@ exports.register = function(server, options, next) {
       var queryObjLocal = {};
       var isAllAny = true;
 
-      queryObj.$and = [{
+      db.users.findOne({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        shortlisted: true,
+        interestOut: true,
+        basicDetails: true
+      }, (err, doc) => {
+
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+        console.log("doc: " + util.inspect(doc, false, null));
+        var shortlistedIds = [];
+        var interestOutIds = [];
+
+        if (doc) {
+          if (doc.shortlisted !== undefined) {
+            for (var i = 0; i < doc.shortlisted.length; i++) {
+              shortlistedIds.push(mongojs.ObjectId(doc.shortlisted[
+                i]));
+            }
+          }
+          console.log("shortlistedIds: " + util.inspect(
+            shortlistedIds, false, null));
+
+          if (doc.interestOut !== undefined) {
+            for (var i = 0; i < doc.interestOut.length; i++) {
+              interestOutIds.push(mongojs.ObjectId(doc.interestOut[
+                i]));
+            }
+          }
+          console.log("interestOutIds: " + util.inspect(
+            interestOutIds, false, null));
+
+          queryObj.$and = [{
+            _id: {
+              $nin: shortlistedIds.concat(interestOutIds)
+            }
+          }, {
+            _id: {
+              $ne: mongojs.ObjectId(request.auth.credentials
+                ._id)
+            }
+          }, {
+            "basicDetails.gender": {
+              $ne: doc.basicDetails.gender
+            }
+          }];
+        }
+
+        /*if (req.minAge.toLowerCase() != "any" || req.maxAge.toLowerCase() !=
+          "any" || req.minHeight.toLowerCase() != "any" || req.maxHeight
+          .toLowerCase() !=
+          "any" || req.complexion.toLowerCase() != "any" || req.bodyType
+          .toLowerCase() !=
+          "any" || req.subCaste.toLowerCase() != "any") {
+          //queryObj.basicDetails = {};
+          isAllAny = false;
+        }*/
+
+        if (req.minAge.toLowerCase() != "any") {
+          queryObjLocal["basicDetails.dob"] = {
+            $lte: parseInt(moment(moment().subtract(parseInt(req.minAge),
+              'years')._d).format('YYYYMMDD'))
+          }
+
+          queryObj.$and.push(queryObjLocal);
+        }
+
+        if (req.maxAge.toLowerCase() != "any") {
+          queryObjLocal = {};
+          queryObjLocal["basicDetails.dob"] = {
+            $gte: parseInt(moment(moment().subtract(parseInt(req.maxAge) +
+              1,
+              'years')._d).format('YYYYMMDD'))
+          }
+          queryObj.$and.push(queryObjLocal);
+        }
+        //queryObjLocal.basicDetails.maxAge = req.maxAge;
+
+        if (req.minHeight.toLowerCase() != "any") {
+          var heightSplit = req.minHeight.split(" ");
+          var feet = parseInt(heightSplit[0]);
+          var inches = 0;
+
+          if (heightSplit.length > 2) {
+            inches = parseInt(heightSplit[2]);
+          }
+
+          queryObjLocal["basicDetails.height.feet"] = {
+            $gte: feet
+          };
+
+          queryObjLocal["basicDetails.height.inches"] = {
+            $gte: inches
+          };
+
+          queryObjLocal = {};
+          queryObj.$and.push(queryObjLocal);
+        }
+
+
+        if (req.maxHeight.toLowerCase() != "any") {
+          var heightSplit = req.maxHeight.split(" ");
+          var feet = parseInt(heightSplit[0]);
+          var inches = 0;
+
+          if (heightSplit.length > 2) {
+            inches = parseInt(heightSplit[2]);
+          }
+
+          queryObjLocal["basicDetails.height.feet"] = {
+            $lte: feet
+          };
+
+          queryObjLocal["basicDetails.height.inches"] = {
+            $lte: inches
+          };
+
+          queryObjLocal = {};
+          queryObj.$and.push(queryObjLocal);
+        }
+
+        if (req.complexion.toLowerCase() != "any") {
+          queryObjLocal = {};
+          queryObjLocal["basicDetails.complexion"] = req.complexion;
+          queryObj.$and.push(queryObjLocal);
+        }
+
+        if (req.bodyType.toLowerCase() != "any") {
+          queryObjLocal = {};
+          queryObjLocal["basicDetails.bodyType"] = req.bodyType;
+          queryObj.$and.push(queryObjLocal);
+        }
+
+
+        if (req.subCaste.toLowerCase() != "any") {
+          queryObjLocal = {};
+          queryObjLocal["religiousInfo.subCaste"] = req.subCaste;
+          queryObj.$and.push(queryObjLocal);
+        }
+
+        /*if (!isAllAny)
+            queryObj.$and.push(queryObjLocal);*/
+
+
+        console.log("queryObj: " + util.inspect(queryObj, false,
+          null));
+
+        db.users.find(queryObj, {
+          basicDetails: true,
+          userId: true,
+          dp: true,
+          locationInfo: true
+        }, function(err, docs) {
+          if (err) {
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
+          }
+
+          for (var i = 0, len = docs.length; i < len; i++) {
+            if (docs[i].basicDetails)
+              if (docs[i].basicDetails
+                .dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails
+                  .dob.toString(), "years");
+          }
+
+          resp.status = "SUCCESS";
+          resp.messages = "Requests.";
+          resp.data.profiles = docs;
+          reply(resp);
+        });
+      });
+
+      /*queryObj.$and = [{
         "basicDetails.gender": {
           $ne: request.payload.gender
         }
@@ -67,144 +266,7 @@ exports.register = function(server, options, next) {
         _id: {
           $ne: mongojs.ObjectId(request.auth.credentials._id)
         }
-      }];
-
-      if (req.minAge.toLowerCase() != "any" || req.maxAge.toLowerCase() !=
-        "any" || req.minHeight.toLowerCase() != "any" || req.maxHeight.toLowerCase() !=
-        "any" || req.complexion.toLowerCase() != "any" || req.bodyType.toLowerCase() !=
-        "any" || req.subCaste.toLowerCase() != "any") {
-        //queryObj.basicDetails = {};
-        isAllAny = false;
-      }
-
-      if (req.minAge.toLowerCase() != "any") {
-        queryObjLocal["basicDetails.dob"] = {
-          $lte: parseInt(moment(moment().subtract(parseInt(req.minAge),
-            'years')._d).format('YYYYMMDD'))
-        }
-
-        queryObj.$and.push(queryObjLocal);
-      }
-
-      if (req.maxAge.toLowerCase() != "any") {
-        queryObjLocal = {};
-        queryObjLocal["basicDetails.dob"] = {
-          $gte: parseInt(moment(moment().subtract(parseInt(req.maxAge),
-            'years')._d).format('YYYYMMDD'))
-        }
-        queryObj.$and.push(queryObjLocal);
-      }
-      //queryObjLocal.basicDetails.maxAge = req.maxAge;
-
-      if (req.minHeight.toLowerCase() != "any") {
-        var heightSplit = req.minHeight.split(" ");
-        var feet = parseInt(heightSplit[0]);
-        var inches = 0;
-
-        if (heightSplit.length > 2) {
-          inches = parseInt(heightSplit[2]);
-        }
-
-        queryObjLocal["basicDetails.height.feet"] = {
-          $gte: feet
-        };
-
-        queryObjLocal["basicDetails.height.inches"] = {
-          $gte: inches
-        };
-
-        queryObjLocal = {};
-        queryObj.$and.push(queryObjLocal);
-      }
-
-
-      if (req.maxHeight.toLowerCase() != "any") {
-        var heightSplit = req.maxHeight.split(" ");
-        var feet = parseInt(heightSplit[0]);
-        var inches = 0;
-
-        if (heightSplit.length > 2) {
-          inches = parseInt(heightSplit[2]);
-        }
-
-        queryObjLocal["basicDetails.height.feet"] = {
-          $lte: feet
-        };
-
-        queryObjLocal["basicDetails.height.inches"] = {
-          $lte: inches
-        };
-
-        queryObjLocal = {};
-        queryObj.$and.push(queryObjLocal);
-      }
-
-      if (req.complexion.toLowerCase() != "any") {
-        queryObjLocal = {};
-        queryObjLocal["basicDetails.complexion"] = req.complexion;
-        queryObj.$and.push(queryObjLocal);
-      }
-
-      if (req.bodyType.toLowerCase() != "any") {
-        queryObjLocal = {};
-        queryObjLocal["basicDetails.bodyType"] = req.bodyType;
-        queryObj.$and.push(queryObjLocal);
-      }
-
-
-      if (req.subCaste.toLowerCase() != "any") {
-        queryObjLocal = {};
-        queryObjLocal["religiousInfo.subCaste"] = req.subCaste;
-        queryObj.$and.push(queryObjLocal);
-      }
-
-      /*if (!isAllAny)
-          queryObj.$and.push(queryObjLocal);*/
-
-
-      console.log("queryObj: " + util.inspect(queryObj, false, null));
-
-      db.users.find(queryObj, {
-        basicDetails: true,
-        userId: true,
-        dp: true,
-        locationInfo: true
-      }, function(err, docs) {
-        if (err) {
-          return reply(Boom.wrap(err, 'Internal MongoDB error'));
-        }
-
-        for (var i = 0, len = docs.length; i < len; i++) {
-          if (docs[i].basicDetails)
-            docs[i].basicDetails.age = moment().diff(docs[i].basicDetails
-              .dob, "years");
-        }
-
-        resp.status = "SUCCESS";
-        resp.messages = "Requests.";
-        resp.data.profiles = docs;
-        reply(resp);
-      });
-
-      /*  db.users.find(queryObj, {
-            religiousInfo: true
-        }, function(err, docs) {
-            if (err) {
-                return reply(Boom.wrap(err, 'Internal MongoDB error'));
-            }
-
-            resp.status = "SUCCESS";
-
-            if (!docs || !docs.religiousInfo) {
-                resp.messages = "No data found.";
-                return reply(resp);
-            }
-
-            resp.messages = "Data found.";
-            resp.data.religiousInfo = docs.religiousInfo;
-            reply(resp);
-        });*/
-
+      }];*/
     }
   });
 
@@ -546,8 +608,6 @@ exports.register = function(server, options, next) {
             resp.status = "SUCCESS";
             resp.messages = "Mobile number updated.";
             return reply(resp);
-
-            //reply().code(204);
           });
         });
       });
@@ -564,58 +624,63 @@ exports.register = function(server, options, next) {
 
       var user = request.payload.data;
 
+      if (user.password.password !== user.password.rePassword) {
+        resp.status = "ERROR";
+        resp.messages = "New password mismatches";
+        return reply(resp);
+      }
+
       db.users.findOne({
-        phone: user.phone,
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        password: true
       }, (err, doc) => {
         if (err) {
-          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+          return reply(Boom.wrap(err,
+            'Internal MongoDB error'));
         }
+        console.log("doc: " + doc.password);
 
-        if (doc) {
-          resp.status = "ERROR";
-          resp.messages = "Phone number is already registered!";
-          return reply(resp);
-        }
-
-        db.users.findOne({
-          _id: mongojs.ObjectId(request.auth.credentials._id)
-        }, {
-          password: true
-        }, (err, doc) => {
-          if (err) {
-            return reply(Boom.wrap(err,
-              'Internal MongoDB error'));
-          }
-          console.log("doc: " + doc.password);
-          if (doc.password !== user.password.oldPassword) {
-            resp.status = "ERROR";
-            resp.messages = "Wrong old password";
-            return reply(resp);
-          }
-
-          if (user.password.password !== user.password.rePassword) {
-            resp.status = "ERROR";
-            resp.messages = "New password mismatches";
-            return reply(resp);
-          }
-          // Update the password
-          db.users.update({
-            _id: mongojs.ObjectId(request.auth.credentials._id)
-          }, {
-            $set: {
-              password: user.password.password
-            }
-          }, function(err, result) {
-            if (err) {
-              return reply(Boom.wrap(err,
-                'Internal MongoDB error'));
+        bcrypt.compare(user.password.oldPassword, doc.password,
+          function(err, isMatch) {
+            if (!isMatch) {
+              resp.status = "ERROR";
+              resp.messages = "Wrong old password";
+              return reply(resp);
             }
 
-            resp.status = "SUCCESS";
-            resp.messages = "Password updated";
-            return reply(resp);
+            // Update the password
+            bcrypt.hash(user.password.password, saltRounds,
+              function(err, hashPassword) {
+                if (err) {
+                  console.log("err: " + err);
+                }
+
+                db.users.update({
+                  _id: mongojs.ObjectId(request.auth.credentials
+                    ._id)
+                }, {
+                  $set: {
+                    password: hashPassword
+                  }
+                }, function(err, result) {
+                  if (err) {
+                    return reply(Boom.wrap(err,
+                      'Internal MongoDB error'));
+                  }
+
+                  resp.status = "SUCCESS";
+                  resp.messages = "Password updated";
+                  return reply(resp);
+                });
+              });
           });
-        });
+
+        /*if (doc.password !== user.password.oldPassword) {
+          resp.status = "ERROR";
+          resp.messages = "Wrong old password";
+          return reply(resp);
+        }*/
       });
     }
   });
@@ -843,11 +908,11 @@ exports.register = function(server, options, next) {
 
           for (var i = 0, len = docs.length; i < len; i++) {
             if (docs[i].basicDetails)
-            if (docs[i].basicDetails
-              .dob)
-              docs[i].basicDetails.age = moment().diff(docs[i]
-                .basicDetails
-                .dob.toString(), "years");
+              if (docs[i].basicDetails
+                .dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails
+                  .dob.toString(), "years");
           }
 
           resp.status = "SUCCESS";
@@ -868,27 +933,39 @@ exports.register = function(server, options, next) {
       var resp = {
         data: {}
       };
+
       console.log("request.auth.credentials: " + util.inspect(
         request.auth.credentials, false, null));
 
-      var req = request.params;
       db.users.findOne({
         _id: mongojs.ObjectId(request.auth.credentials._id)
       }, {
         shortlisted: true,
         interestOut: true,
-        basicDetails: true
+        basicDetails: true,
+        profilePreference: true,
+        isCompleted: true
       }, (err, doc) => {
-
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
+
         console.log("doc: " + util.inspect(doc, false, null));
+
         var queryObj = {};
+        var queryObjLocal = {};
         var shortlistedIds = [];
         var interestOutIds = [];
 
         if (doc) {
+          if (!doc.isCompleted) {
+            resp.status = "ERROR";
+            resp.messages =
+              "Complete your profile to see other profiles.";
+            //console.log("NEW: %j", docs);
+            reply(resp);
+          }
+
           if (doc.shortlisted !== undefined) {
             for (var i = 0; i < doc.shortlisted.length; i++) {
               shortlistedIds.push(mongojs.ObjectId(doc.shortlisted[
@@ -921,13 +998,96 @@ exports.register = function(server, options, next) {
               "basicDetails.gender": {
                 $ne: doc.basicDetails.gender
               }
-
             }]
           };
 
-          /*queryObj._id = {
-              $nin: shortlistedIds.concat(interestOutIds)
-          };*/
+          if (doc.profilePreference !== undefined) {
+            var preference = doc.profilePreference;
+
+            if (preference.minAge.toLowerCase() != "any") {
+              queryObjLocal["basicDetails.dob"] = {
+                $lte: parseInt(moment(moment().subtract(parseInt(
+                    preference.minAge),
+                  'years')._d).format('YYYYMMDD'))
+              }
+
+              queryObj.$and.push(queryObjLocal);
+            }
+
+            if (preference.maxAge.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["basicDetails.dob"] = {
+                $gte: parseInt(moment(moment().subtract(parseInt(
+                    preference.maxAge) + 1,
+                  'years')._d).format('YYYYMMDD'))
+              }
+              queryObj.$and.push(queryObjLocal);
+            }
+            //queryObjLocal.basicDetails.maxAge = preference.maxAge;
+
+            if (preference.minHeight.toLowerCase() != "any") {
+              var heightSplit = preference.minHeight.split(" ");
+              var feet = parseInt(heightSplit[0]);
+              var inches = 0;
+
+              if (heightSplit.length > 2) {
+                inches = parseInt(heightSplit[2]);
+              }
+
+              queryObjLocal["basicDetails.height.feet"] = {
+                $gte: feet
+              };
+
+              queryObjLocal["basicDetails.height.inches"] = {
+                $gte: inches
+              };
+
+              queryObjLocal = {};
+              queryObj.$and.push(queryObjLocal);
+            }
+
+
+            if (preference.maxHeight.toLowerCase() != "any") {
+              var heightSplit = preference.maxHeight.split(" ");
+              var feet = parseInt(heightSplit[0]);
+              var inches = 0;
+
+              if (heightSplit.length > 2) {
+                inches = parseInt(heightSplit[2]);
+              }
+
+              queryObjLocal["basicDetails.height.feet"] = {
+                $lte: feet
+              };
+
+              queryObjLocal["basicDetails.height.inches"] = {
+                $lte: inches
+              };
+
+              queryObjLocal = {};
+              queryObj.$and.push(queryObjLocal);
+            }
+
+            if (preference.complexion.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["basicDetails.complexion"] = preference
+                .complexion;
+              queryObj.$and.push(queryObjLocal);
+            }
+
+            if (preference.bodyType.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["basicDetails.bodyType"] = preference.bodyType;
+              queryObj.$and.push(queryObjLocal);
+            }
+
+
+            if (preference.subCaste.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["religiousInfo.subCaste"] = preference.subCaste;
+              queryObj.$and.push(queryObjLocal);
+            }
+          }
         }
 
         db.users.find(queryObj, {
@@ -1004,7 +1164,8 @@ exports.register = function(server, options, next) {
         locationInfo: true,
         familyInfo: true,
         dp: true,
-        userId: true
+        userId: true,
+        profilePreference: true
       }, (err, doc) => {
 
         if (err) {
@@ -1106,7 +1267,6 @@ exports.register = function(server, options, next) {
     }
   });
 
-
   server.route({
     method: 'POST',
     config: {
@@ -1160,15 +1320,30 @@ exports.register = function(server, options, next) {
 
             req.password = hash;
 
-            db.users.save(req, (err, result) => {
+            db.users.save(req, (err, doc) => {
               if (err) {
                 return reply(Boom.wrap(err,
                   'Internal MongoDB error'));
               }
 
+              var token = {
+                _id: doc._id,
+                exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time
+              }
+
+              // sign the session as a JWT
+              // var signedToken = JWT.sign(token, process.env.JWT_SECRET); // synchronous
+              var signedToken = JWT.sign(token,
+                "NeverShareYourSecret"); // synchronous
+
+              console.log("signedToken: " + signedToken);
+
               resp.status = "SUCCESS";
+              resp.token = signedToken;
+              resp.data = doc;
               resp.messages = "Signed up!";
-              reply(resp);
+              reply(resp)
+                .header("Authorization", signedToken);
             });
           });
         });
@@ -1518,23 +1693,23 @@ exports.register = function(server, options, next) {
         _id: mongojs.ObjectId(request.auth.credentials._id)
       }, {
         $set: {
-          familyInfo: req.familyInfo
+          familyInfo: req.familyInfo,
+          isCompleted: true
         }
-      }, function(err, result) {
+      }, function(err, doc) {
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        if (result.n === 0) {
+        /*if (doc.n === 0) {
           return reply(Boom.notFound());
-        }
+        }*/
 
         resp.status = "SUCCESS";
         resp.messages = "Updated family information.";
         reply(resp);
         //reply().code(204);
       });
-
     }
   });
 
