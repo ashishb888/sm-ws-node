@@ -1176,6 +1176,39 @@ exports.register = function(server, options, next) {
           return reply(Boom.notFound());
         }
 
+        /*if (req._id != request.auth.credentials
+          ._id) {
+            db.users.update({
+              _id: mongojs.ObjectId(request.auth.credentials)
+            }, {
+              $set: {
+                viewedBy: req._id
+              }
+            },{
+              upsert: true
+            }, function(err, result) {
+              if (err) {
+                return reply(Boom.wrap(err,
+                  'Internal MongoDB error'));
+              }
+
+              if (result.n === 0) {
+                return reply(Boom.notFound());
+              }
+
+              if (doc.basicDetails) {
+                if (doc.basicDetails.dob)
+                  doc.basicDetails.age = moment().diff(doc.basicDetails.dob
+                    .toString(), "years");
+              }
+
+              resp.status = "SUCCESS";
+              resp.data.profile = doc;
+              return reply(resp);
+            });
+        }*/
+
+
         if (doc.basicDetails) {
           if (doc.basicDetails.dob)
             doc.basicDetails.age = moment().diff(doc.basicDetails.dob

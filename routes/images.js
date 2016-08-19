@@ -106,9 +106,8 @@ exports.register = function(server, options, next) {
 
     server.route({
         method: 'GET',
-        path: '/images/{type}',
+        path: '/images/{type}/{id}',
         handler: function(request, reply) {
-            console.log("images GET");
             var req = request.params;
             var resp = {
                 data: {}
@@ -126,7 +125,7 @@ exports.register = function(server, options, next) {
                     break;
             }*/
             db.images.find({
-                _uid: request.auth.credentials._id,
+                _uid: req.id,
                 type: req.type
             }, function(err, docs) {
                 if (err) {
@@ -207,14 +206,14 @@ exports.register = function(server, options, next) {
 
     server.route({
         method: 'GET',
-        path: '/images',
+        path: '/images/{id}',
         handler: function(request, reply) {
             var resp = {
                 data: {}
             };
 
             db.images.find({
-                _uid: request.auth.credentials._id
+                _uid: request.params.id
             }, {
             }, function(err, docs) {
                 var resp = {

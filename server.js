@@ -20,7 +20,7 @@ var validate = function(decoded, request, callback) {
   // do your checks to see if the person is valid
   console.log("request.headers.authorization Validate: " + request.headers.authorization);
   console.log("decoded: " + util.inspect(decoded, false, null));
-  
+
   /*if (!people[decoded.id]) {
     return callback(null, false);
   }
@@ -210,7 +210,7 @@ const options = {
 };
 
 //Connect to db
-server.app.db = mongojs('smdb-11aug', ['users', 'images']);
+server.app.db = mongojs('smdb-19aug', ['users', 'images']);
 
 server.app.db.on('error', function(err) {
   console.log('database error', err)
