@@ -370,8 +370,17 @@ exports.register = function(server, options, next) {
                 i]));
             }
           }
-          console.log("rejectedOfIds: " + util.inspect(
-            rejectedOfIds, false, null));
+          console.log("interestInIds: " + util.inspect(
+            interestInIds, false, null));
+
+            if (doc.interestIn !== undefined) {
+              for (var i = 0; i < doc.interestIn.length; i++) {
+                interestInIds.push(mongojs.ObjectId(doc.interestIn[
+                  i]));
+              }
+            }
+            console.log("interestInIds: " + util.inspect(
+              interestInIds, false, null));
 
           if (doc.shortlisted !== undefined) {
             for (var i = 0; i < doc.shortlisted.length; i++) {
