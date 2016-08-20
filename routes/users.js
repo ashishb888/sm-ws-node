@@ -13,6 +13,134 @@ exports.register = function(server, options, next) {
   const mongojs = server.app.mongojs;
   const moment = server.app.moment;
 
+  // Get rejectedBy
+  server.route({
+    method: 'GET',
+    path: '/reject',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+
+      db.users.findOne({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        rejectedBy: true
+      }, function(err, doc) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        if (!doc.rejectedBy || doc.rejectedBy.length === 0) {
+          resp.status = "SUCCESS";
+          resp.messages = "No requests.";
+          resp.data.profiles = [];
+          return reply(resp);
+        }
+
+        var queryObj = {};
+        var rejectedByIds = [];
+
+        for (var i = 0; i < doc.rejectedBy.length; i++) {
+          rejectedByIds.push(mongojs.ObjectId(doc.rejectedBy[i]));
+        }
+        queryObj._id = {
+          $in: rejectedByIds
+        };
+
+        db.users.find(queryObj, {
+          basicDetails: true,
+          locationInfo: true,
+          dp: true,
+          userId: true
+        }, function(err, docs) {
+          if (err) {
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
+          }
+
+          for (var i = 0, len = docs.length; i < len; i++) {
+            if (docs[i].basicDetails)
+              if (docs[i].basicDetails
+                .dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails
+                  .dob.toString(), "years");
+          }
+
+          resp.status = "SUCCESS";
+          resp.messages = "Rejected by.";
+          resp.data.profiles = docs;
+          reply(resp);
+        });
+      });
+    }
+  });
+
+  // Get acceptedBy
+  server.route({
+    method: 'GET',
+    path: '/accept',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+
+      db.users.findOne({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        acceptedBy: true
+      }, function(err, doc) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        if (!doc.acceptedBy || doc.acceptedBy.length === 0) {
+          resp.status = "SUCCESS";
+          resp.messages = "No requests.";
+          resp.data.profiles = [];
+          return reply(resp);
+        }
+
+        var queryObj = {};
+        var acceptedByIds = [];
+
+        for (var i = 0; i < doc.acceptedBy.length; i++) {
+          acceptedByIds.push(mongojs.ObjectId(doc.acceptedBy[i]));
+        }
+        queryObj._id = {
+          $in: acceptedByIds
+        };
+
+        db.users.find(queryObj, {
+          basicDetails: true,
+          locationInfo: true,
+          dp: true,
+          userId: true
+        }, function(err, docs) {
+          if (err) {
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
+          }
+
+          for (var i = 0, len = docs.length; i < len; i++) {
+            if (docs[i].basicDetails)
+              if (docs[i].basicDetails
+                .dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails
+                  .dob.toString(), "years");
+          }
+
+          resp.status = "SUCCESS";
+          resp.messages = "Accepted by.";
+          resp.data.profiles = docs;
+          reply(resp);
+        });
+      });
+    }
+  });
+
   server.route({
     method: 'POST',
     path: '/reject',
@@ -47,7 +175,8 @@ exports.register = function(server, options, next) {
           }
         }, function(err, result) {
           if (err) {
-            return reply(Boom.wrap(err, 'Internal MongoDB error'));
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
           }
 
           resp.status = "SUCCESS";
@@ -93,7 +222,8 @@ exports.register = function(server, options, next) {
           }
         }, function(err, result) {
           if (err) {
-            return reply(Boom.wrap(err, 'Internal MongoDB error'));
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
           }
 
           resp.status = "SUCCESS";
@@ -615,7 +745,8 @@ exports.register = function(server, options, next) {
         db.users.find(queryObj, {
           basicDetails: true,
           dp: true,
-          locationInfo: true
+          locationInfo: true,
+          userId: true
         }, function(err, docs) {
           if (err) {
             return reply(Boom.wrap(err,
@@ -1035,6 +1166,9 @@ exports.register = function(server, options, next) {
       }, {
         shortlisted: true,
         interestOut: true,
+        interestIn: true,
+        acceptedBy: true,
+        rejectedBy: true,
         basicDetails: true,
         profilePreference: true,
         isCompleted: true
@@ -1049,6 +1183,9 @@ exports.register = function(server, options, next) {
         var queryObjLocal = {};
         var shortlistedIds = [];
         var interestOutIds = [];
+        var acceptedByIds = [];
+        var rejectedByIds = [];
+        var interestInIds = [];
 
         if (doc) {
           if (!doc.isCompleted) {
@@ -1058,6 +1195,32 @@ exports.register = function(server, options, next) {
             //console.log("NEW: %j", docs);
             reply(resp);
           }
+          if (doc.interestIn !== undefined) {
+            for (var i = 0; i < doc.interestIn.length; i++) {
+              interestInIds.push(mongojs.ObjectId(doc.interestIn[
+                i]));
+            }
+          }
+          console.log("interestInIds: " + util.inspect(
+            interestInIds, false, null));
+
+          if (doc.rejectedBy !== undefined) {
+            for (var i = 0; i < doc.rejectedBy.length; i++) {
+              rejectedByIds.push(mongojs.ObjectId(doc.rejectedBy[
+                i]));
+            }
+          }
+          console.log("rejectedByIds: " + util.inspect(
+            rejectedByIds, false, null));
+
+          if (doc.acceptedBy !== undefined) {
+            for (var i = 0; i < doc.acceptedBy.length; i++) {
+              acceptedByIds.push(mongojs.ObjectId(doc.acceptedBy[
+                i]));
+            }
+          }
+          console.log("acceptedByIds: " + util.inspect(
+            acceptedByIds, false, null));
 
           if (doc.shortlisted !== undefined) {
             for (var i = 0; i < doc.shortlisted.length; i++) {
@@ -1080,7 +1243,7 @@ exports.register = function(server, options, next) {
           queryObj = {
             $and: [{
               _id: {
-                $nin: shortlistedIds.concat(interestOutIds)
+                $nin: shortlistedIds.concat(interestOutIds, interestInIds, acceptedByIds, rejectedByIds)
               }
             }, {
               _id: {
