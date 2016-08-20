@@ -14,6 +14,98 @@ exports.register = function(server, options, next) {
   const moment = server.app.moment;
 
   server.route({
+    method: 'POST',
+    path: '/reject',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+      var req = request.payload.data;
+
+      db.users.update({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        $addToSet: {
+          rejectedOf: req.id
+        },
+        $pull: {
+          interestIn: req.id
+        }
+      }, function(err, result) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        db.users.update({
+          _id: mongojs.ObjectId(req.id)
+        }, {
+          $addToSet: {
+            rejectedBy: request.auth.credentials._id
+          },
+          $pull: {
+            interestOut: request.auth.credentials._id
+          }
+        }, function(err, result) {
+          if (err) {
+            return reply(Boom.wrap(err, 'Internal MongoDB error'));
+          }
+
+          resp.status = "SUCCESS";
+          resp.messages = "Rejected.";
+          resp.data = result;
+          return reply(resp);
+        });
+      });
+    }
+  });
+
+  server.route({
+    method: 'POST',
+    path: '/accept',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+      var req = request.payload.data;
+
+      db.users.update({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        $addToSet: {
+          acceptedOf: req.id
+        },
+        $pull: {
+          interestIn: req.id
+        }
+      }, function(err, result) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        db.users.update({
+          _id: mongojs.ObjectId(req.id)
+        }, {
+          $addToSet: {
+            acceptedBy: request.auth.credentials._id
+          },
+          $pull: {
+            interestOut: request.auth.credentials._id
+          }
+        }, function(err, result) {
+          if (err) {
+            return reply(Boom.wrap(err, 'Internal MongoDB error'));
+          }
+
+          resp.status = "SUCCESS";
+          resp.messages = "Accepted.";
+          resp.data = result;
+          return reply(resp);
+        });
+      });
+    }
+  });
+
+  server.route({
     method: 'GET',
     path: '/flags',
     handler: function(request, reply) {
@@ -129,6 +221,8 @@ exports.register = function(server, options, next) {
             "basicDetails.gender": {
               $ne: doc.basicDetails.gender
             }
+          }, {
+            isCompleted: true
           }];
         }
 
@@ -839,7 +933,6 @@ exports.register = function(server, options, next) {
         resp.data = result;
         return reply(resp);
       });
-
     }
   });
 
@@ -998,6 +1091,8 @@ exports.register = function(server, options, next) {
               "basicDetails.gender": {
                 $ne: doc.basicDetails.gender
               }
+            }, {
+              isCompleted: true
             }]
           };
 
@@ -1176,38 +1271,33 @@ exports.register = function(server, options, next) {
           return reply(Boom.notFound());
         }
 
-        /*if (req._id != request.auth.credentials
+        if (req.id != request.auth.credentials
           ._id) {
-            db.users.update({
-              _id: mongojs.ObjectId(request.auth.credentials)
-            }, {
-              $set: {
-                viewedBy: req._id
-              }
-            },{
-              upsert: true
-            }, function(err, result) {
-              if (err) {
-                return reply(Boom.wrap(err,
-                  'Internal MongoDB error'));
-              }
 
-              if (result.n === 0) {
-                return reply(Boom.notFound());
-              }
+          db.users.update({
+            _id: mongojs.ObjectId(req.id)
+          }, {
+            $addToSet: {
+              viewedBy: request.auth.credentials
+                ._id
+            }
+          }, function(err, doc) {
+            if (err) {
+              return reply(Boom.wrap(err,
+                'Internal MongoDB error'));
+            }
 
-              if (doc.basicDetails) {
-                if (doc.basicDetails.dob)
-                  doc.basicDetails.age = moment().diff(doc.basicDetails.dob
-                    .toString(), "years");
-              }
+            /*if (doc.basicDetails) {
+              if (doc.basicDetails.dob)
+                doc.basicDetails.age = moment().diff(doc.basicDetails.dob
+                  .toString(), "years");
+            }
 
-              resp.status = "SUCCESS";
-              resp.data.profile = doc;
-              return reply(resp);
-            });
-        }*/
-
+            resp.status = "SUCCESS";
+            resp.data.profile = doc;
+            return reply(resp);*/
+          });
+        }
 
         if (doc.basicDetails) {
           if (doc.basicDetails.dob)

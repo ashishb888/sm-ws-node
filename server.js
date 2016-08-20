@@ -8,13 +8,6 @@ const util = require('util');
 // Create a server with a host and port
 const server = new Hapi.Server();
 
-var people = { // our "users database"
-  1: {
-    id: 1,
-    name: 'Jen Jones'
-  }
-};
-
 var validate = function(decoded, request, callback) {
 
   // do your checks to see if the person is valid
@@ -30,39 +23,6 @@ var validate = function(decoded, request, callback) {
   callback(null, true);
 };
 
-/*server.register(require('hapi-auth-jwt2'), function (err) {
-
-    if(err){
-      console.log(err);
-    }
-
-    server.auth.strategy('jwt', 'jwt',
-    { key: 'NeverShareYourSecret',          // Never Share your secret key
-      validateFunc: validate,            // validate function defined above
-      verifyOptions: { algorithms: [ 'HS256' ] } // pick a strong algorithm
-    });
-
-    server.auth.default('jwt');
-
-    server.route([
-      {
-        method: "GET", path: "/", config: { auth: false },
-        handler: function(request, reply) {
-          reply({text: 'Token not required'});
-        }
-      },
-      {
-        method: 'GET', path: '/restricted', config: { auth: 'jwt' },
-        handler: function(request, reply) {
-          reply({text: 'You used a Token!'})
-          .header("Authorization", request.headers.authorization);
-        }
-      }
-    ]);
-});
-*/
-
-
 
 server.connection({
   /*host:"localhost",*/
@@ -70,10 +30,6 @@ server.connection({
   routes: {
     cors: true
   }
-  /*,
-    options: {
-      cors: true
-    }*/
 });
 
 server.register(require('hapi-auth-jwt2'), function(err) {
@@ -83,13 +39,13 @@ server.register(require('hapi-auth-jwt2'), function(err) {
   }
 
   server.auth.strategy('jwt', 'jwt', {
-    key: 'NeverShareYourSecret', // Never Share your secret key
+    key: 'NeverShareYourSecret',
     validateFunc: validate, // validate function defined above
     verifyOptions: {
       algorithms: ['HS256'],
       tokenType: "bearer",
       complete: true
-    } // pick a strong algorithm
+    }
   });
 
   server.auth.default('jwt');
