@@ -16,36 +16,38 @@ exports.register = function(server, options, next) {
   // Get rejectedBy
   server.route({
     method: 'GET',
-    path: '/reject',
+    path: '/reject/{type}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
+      var type = request.params.type;
+      var queryObj = {};
+      queryObj[type] = true;
 
       db.users.findOne({
         _id: mongojs.ObjectId(request.auth.credentials._id)
-      }, {
-        rejectedBy: true
-      }, function(err, doc) {
+      }, queryObj, function(err, doc) {
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        if (!doc.rejectedBy || doc.rejectedBy.length === 0) {
+        if (!doc[type] || doc[type].length === 0) {
           resp.status = "SUCCESS";
           resp.messages = "No requests.";
           resp.data.profiles = [];
           return reply(resp);
         }
 
-        var queryObj = {};
-        var rejectedByIds = [];
+        queryObj = {};
+        var typeIds = [];
 
-        for (var i = 0; i < doc.rejectedBy.length; i++) {
-          rejectedByIds.push(mongojs.ObjectId(doc.rejectedBy[i]));
+        for (var i = 0; i < doc[type].length; i++) {
+          typeIds.push(mongojs.ObjectId(doc[type][i]));
         }
+
         queryObj._id = {
-          $in: rejectedByIds
+          $in: typeIds
         };
 
         db.users.find(queryObj, {
@@ -69,7 +71,6 @@ exports.register = function(server, options, next) {
           }
 
           resp.status = "SUCCESS";
-          resp.messages = "Rejected by.";
           resp.data.profiles = docs;
           reply(resp);
         });
@@ -80,37 +81,43 @@ exports.register = function(server, options, next) {
   // Get acceptedBy
   server.route({
     method: 'GET',
-    path: '/accept',
+    path: '/accept/{type}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
 
+      var type = request.params.type;
+      var queryObj = {};
+      queryObj[type] = true;
+
+      console.log("queryObj: " + util.inspect(queryObj, false, null));
       db.users.findOne({
         _id: mongojs.ObjectId(request.auth.credentials._id)
-      }, {
-        acceptedBy: true
-      }, function(err, doc) {
+      }, queryObj, function(err, doc) {
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        if (!doc.acceptedBy || doc.acceptedBy.length === 0) {
+        if (!doc[type] || doc[type].length === 0) {
           resp.status = "SUCCESS";
           resp.messages = "No requests.";
           resp.data.profiles = [];
           return reply(resp);
         }
 
-        var queryObj = {};
-        var acceptedByIds = [];
+        queryObj = {};
+        var typeIds = [];
 
-        for (var i = 0; i < doc.acceptedBy.length; i++) {
-          acceptedByIds.push(mongojs.ObjectId(doc.acceptedBy[i]));
+        for (var i = 0; i < doc[type].length; i++) {
+          typeIds.push(mongojs.ObjectId(doc[type][i]));
         }
         queryObj._id = {
-          $in: acceptedByIds
+          $in: typeIds
         };
+
+        console.log("queryObj: " + util.inspect(queryObj, false,
+          null));
 
         db.users.find(queryObj, {
           basicDetails: true,
@@ -133,7 +140,6 @@ exports.register = function(server, options, next) {
           }
 
           resp.status = "SUCCESS";
-          resp.messages = "Accepted by.";
           resp.data.profiles = docs;
           reply(resp);
         });
@@ -308,8 +314,13 @@ exports.register = function(server, options, next) {
         _id: mongojs.ObjectId(request.auth.credentials._id)
       }, {
         shortlisted: true,
+        basicDetails: true,
         interestOut: true,
-        basicDetails: true
+        interestIn: true,
+        acceptedBy: true,
+        rejectedBy: true,
+        acceptedOf: true,
+        rejectedOf: true,
       }, (err, doc) => {
 
         if (err) {
@@ -318,8 +329,50 @@ exports.register = function(server, options, next) {
         console.log("doc: " + util.inspect(doc, false, null));
         var shortlistedIds = [];
         var interestOutIds = [];
+        var interestInIds = [];
+        var acceptedOfIds = [];
+        var rejectedOfIds = [];
+        var acceptedByIds = [];
+        var rejectedByIds = [];
 
         if (doc) {
+          if (doc.acceptedBy !== undefined) {
+            for (var i = 0; i < doc.acceptedBy.length; i++) {
+              acceptedByIds.push(mongojs.ObjectId(doc.acceptedBy[
+                i]));
+            }
+          }
+          console.log("acceptedByIds: " + util.inspect(
+            acceptedByIds, false, null));
+
+          if (doc.rejectedBy !== undefined) {
+            for (var i = 0; i < doc.rejectedBy.length; i++) {
+              rejectedByIds.push(mongojs.ObjectId(doc.rejectedBy[
+                i]));
+            }
+          }
+          console.log("rejectedByIds: " + util.inspect(
+            rejectedByIds, false, null));
+
+
+          if (doc.acceptedOf !== undefined) {
+            for (var i = 0; i < doc.acceptedOf.length; i++) {
+              acceptedOfIds.push(mongojs.ObjectId(doc.acceptedOf[
+                i]));
+            }
+          }
+          console.log("acceptedOfIds: " + util.inspect(
+            acceptedOfIds, false, null));
+
+          if (doc.rejectedOf !== undefined) {
+            for (var i = 0; i < doc.rejectedOf.length; i++) {
+              rejectedOfIds.push(mongojs.ObjectId(doc.rejectedOf[
+                i]));
+            }
+          }
+          console.log("rejectedOfIds: " + util.inspect(
+            rejectedOfIds, false, null));
+
           if (doc.shortlisted !== undefined) {
             for (var i = 0; i < doc.shortlisted.length; i++) {
               shortlistedIds.push(mongojs.ObjectId(doc.shortlisted[
@@ -340,7 +393,9 @@ exports.register = function(server, options, next) {
 
           queryObj.$and = [{
             _id: {
-              $nin: shortlistedIds.concat(interestOutIds)
+              $nin: shortlistedIds.concat(interestOutIds,
+                acceptedOfIds, acceptedByIds, interestInIds,
+                rejectedOfIds, rejectedByIds)
             }
           }, {
             _id: {
@@ -1169,6 +1224,8 @@ exports.register = function(server, options, next) {
         interestIn: true,
         acceptedBy: true,
         rejectedBy: true,
+        acceptedOf: true,
+        rejectedOf: true,
         basicDetails: true,
         profilePreference: true,
         isCompleted: true
@@ -1185,6 +1242,8 @@ exports.register = function(server, options, next) {
         var interestOutIds = [];
         var acceptedByIds = [];
         var rejectedByIds = [];
+        var acceptedOfIds = [];
+        var rejectedOfIds = [];
         var interestInIds = [];
 
         if (doc) {
@@ -1195,6 +1254,25 @@ exports.register = function(server, options, next) {
             //console.log("NEW: %j", docs);
             reply(resp);
           }
+
+          if (doc.acceptedOf !== undefined) {
+            for (var i = 0; i < doc.acceptedOf.length; i++) {
+              acceptedOfIds.push(mongojs.ObjectId(doc.acceptedOf[
+                i]));
+            }
+          }
+          console.log("acceptedOfIds: " + util.inspect(
+            acceptedOfIds, false, null));
+
+          if (doc.rejectedOf !== undefined) {
+            for (var i = 0; i < doc.rejectedOf.length; i++) {
+              rejectedOfIds.push(mongojs.ObjectId(doc.rejectedOf[
+                i]));
+            }
+          }
+          console.log("rejectedOfIds: " + util.inspect(
+            rejectedOfIds, false, null));
+
           if (doc.interestIn !== undefined) {
             for (var i = 0; i < doc.interestIn.length; i++) {
               interestInIds.push(mongojs.ObjectId(doc.interestIn[
@@ -1243,7 +1321,10 @@ exports.register = function(server, options, next) {
           queryObj = {
             $and: [{
               _id: {
-                $nin: shortlistedIds.concat(interestOutIds, interestInIds, acceptedByIds, rejectedByIds)
+                $nin: shortlistedIds.concat(interestOutIds,
+                  interestInIds, acceptedByIds,
+                  rejectedByIds, acceptedOfIds,
+                  rejectedOfIds)
               }
             }, {
               _id: {
