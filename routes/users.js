@@ -13,7 +13,73 @@ exports.register = function(server, options, next) {
   const mongojs = server.app.mongojs;
   const moment = server.app.moment;
 
-  // Get rejectedBy
+  // Get visitors
+  server.route({
+    method: 'GET',
+    path: '/visitors',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+      var queryObj = {};
+
+      db.users.findOne({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        viewedBy: true
+      }, function(err, doc) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        console.log("doc: " + util.inspect(doc, false, null));
+
+        if (!doc.viewedBy || doc.viewedBy.length === 0) {
+          resp.status = "SUCCESS";
+          resp.messages = "No visitors.";
+          resp.data.profiles = [];
+          return reply(resp);
+        }
+
+        var viewedByIds = [];
+
+        for (var i = 0; i < doc.viewedBy.length; i++) {
+          viewedByIds.push(mongojs.ObjectId(doc.viewedBy[i]));
+        }
+
+        queryObj._id = {
+          $in: viewedByIds
+        };
+
+        db.users.find(queryObj, {
+          basicDetails: true,
+          locationInfo: true,
+          dp: true,
+          userId: true
+        }, function(err, docs) {
+          if (err) {
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
+          }
+
+          for (var i = 0, len = docs.length; i < len; i++) {
+            if (docs[i].basicDetails)
+              if (docs[i].basicDetails
+                .dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails
+                  .dob.toString(), "years");
+          }
+
+          resp.status = "SUCCESS";
+          resp.data.profiles = docs;
+          reply(resp);
+        });
+      });
+    }
+  });
+
+  // Get rejected
   server.route({
     method: 'GET',
     path: '/reject/{type}',
@@ -78,7 +144,7 @@ exports.register = function(server, options, next) {
     }
   });
 
-  // Get acceptedBy
+  // Get accepted
   server.route({
     method: 'GET',
     path: '/accept/{type}',
