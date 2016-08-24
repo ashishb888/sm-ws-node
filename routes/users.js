@@ -6,21 +6,23 @@ const Joi = require('joi');
 const util = require('util');
 var JWT = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const saltRounds = 10;
 
 exports.register = function(server, options, next) {
   const db = server.app.db;
   const mongojs = server.app.mongojs;
   const moment = server.app.moment;
+  const nPerPage = 5;
+  const saltRounds = 10;
 
   // Get visitors
   server.route({
     method: 'GET',
-    path: '/visitors',
+    path: '/visitors/{page}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
+      var page = request.params.page;
       var queryObj = {};
 
       db.users.findOne({
@@ -56,19 +58,29 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
               if (docs[i].basicDetails
                 .dob)
                 docs[i].basicDetails.age = moment().diff(docs[i]
                   .basicDetails
                   .dob.toString(), "years");
+          }
+
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
           }
 
           resp.status = "SUCCESS";
@@ -82,12 +94,13 @@ exports.register = function(server, options, next) {
   // Get rejected
   server.route({
     method: 'GET',
-    path: '/reject/{type}',
+    path: '/reject/{type}/{page}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
       var type = request.params.type;
+      var page = request.params.page;
       var queryObj = {};
       queryObj[type] = true;
 
@@ -121,19 +134,29 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
               if (docs[i].basicDetails
                 .dob)
                 docs[i].basicDetails.age = moment().diff(docs[i]
                   .basicDetails
                   .dob.toString(), "years");
+          }
+
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
           }
 
           resp.status = "SUCCESS";
@@ -147,13 +170,14 @@ exports.register = function(server, options, next) {
   // Get accepted
   server.route({
     method: 'GET',
-    path: '/accept/{type}',
+    path: '/accept/{type}/{page}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
 
       var type = request.params.type;
+      var page = request.params.page;
       var queryObj = {};
       queryObj[type] = true;
 
@@ -190,19 +214,28 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
               if (docs[i].basicDetails
                 .dob)
                 docs[i].basicDetails.age = moment().diff(docs[i]
                   .basicDetails
                   .dob.toString(), "years");
+          }
+
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
           }
 
           resp.status = "SUCCESS";
@@ -356,7 +389,7 @@ exports.register = function(server, options, next) {
         }
 
         resp.status = "SUCCESS";
-        resp.messages = "Updated profile preference data.";
+        resp.messages = "Updated profile preference.";
         reply(resp);
       });
     }
@@ -371,7 +404,8 @@ exports.register = function(server, options, next) {
       var resp = {
         data: {}
       };
-
+      var page = request.payload.page;
+      console.log("page: " + page);
       var queryObj = {};
       var queryObjLocal = {};
       var isAllAny = true;
@@ -439,14 +473,14 @@ exports.register = function(server, options, next) {
           console.log("interestInIds: " + util.inspect(
             interestInIds, false, null));
 
-            if (doc.interestIn !== undefined) {
-              for (var i = 0; i < doc.interestIn.length; i++) {
-                interestInIds.push(mongojs.ObjectId(doc.interestIn[
-                  i]));
-              }
+          if (doc.interestIn !== undefined) {
+            for (var i = 0; i < doc.interestIn.length; i++) {
+              interestInIds.push(mongojs.ObjectId(doc.interestIn[
+                i]));
             }
-            console.log("interestInIds: " + util.inspect(
-              interestInIds, false, null));
+          }
+          console.log("interestInIds: " + util.inspect(
+            interestInIds, false, null));
 
           if (doc.shortlisted !== undefined) {
             for (var i = 0; i < doc.shortlisted.length; i++) {
@@ -590,13 +624,18 @@ exports.register = function(server, options, next) {
           userId: true,
           dp: true,
           locationInfo: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+          console.log("docLength: " + docLength);
+          console.log("page: " + page);
+
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
               if (docs[i].basicDetails
                 .dob)
@@ -605,22 +644,18 @@ exports.register = function(server, options, next) {
                   .dob.toString(), "years");
           }
 
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
+          }
+
           resp.status = "SUCCESS";
-          resp.messages = "Requests.";
           resp.data.profiles = docs;
           reply(resp);
         });
       });
-
-      /*queryObj.$and = [{
-        "basicDetails.gender": {
-          $ne: request.payload.gender
-        }
-      }, {
-        _id: {
-          $ne: mongojs.ObjectId(request.auth.credentials._id)
-        }
-      }];*/
     }
   });
 
@@ -666,7 +701,7 @@ exports.register = function(server, options, next) {
         }
 
         resp.status = "SUCCESS";
-        resp.messages = "Updated";
+        resp.messages = "Updated religious information.";
         reply(resp);
       });
 
@@ -762,7 +797,7 @@ exports.register = function(server, options, next) {
         }
 
         resp.status = "SUCCESS";
-        resp.messages = "Updated";
+        resp.messages = "Updated basic details.";
         return reply(resp);
 
         //reply().code(204);
@@ -773,11 +808,12 @@ exports.register = function(server, options, next) {
 
   server.route({
     method: 'GET',
-    path: '/requestsout',
+    path: '/requestsout/{page}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
+      var page = request.params.page;
 
       db.users.findOne({
         _id: mongojs.ObjectId(request.auth.credentials._id)
@@ -810,13 +846,16 @@ exports.register = function(server, options, next) {
           dp: true,
           locationInfo: true,
           userId: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
               if (docs[i].basicDetails
                 .dob)
@@ -825,26 +864,30 @@ exports.register = function(server, options, next) {
                   .dob.toString(), "years");
           }
 
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
+          }
+
           resp.status = "SUCCESS";
-          resp.messages = "Requests.";
           resp.data.profiles = docs;
           return reply(resp);
-
-          //reply().code(204);
         });
       });
-
     }
   });
 
   // Get requests
   server.route({
     method: 'GET',
-    path: '/requestsin',
+    path: '/requestsin/{page}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
+      var page = request.params.page;
 
       db.users.findOne({
         _id: mongojs.ObjectId(request.auth.credentials._id)
@@ -877,32 +920,36 @@ exports.register = function(server, options, next) {
           dp: true,
           locationInfo: true,
           userId: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
-            /*docs[i].basicDetails.age = moment().diff(docs[i].basicDetails
-              .dob, "years");*/
               if (docs[i].basicDetails
-              .dob)
-              docs[i].basicDetails.age = moment().diff(docs[i]
-                .basicDetails
-                .dob.toString(), "years");
+                .dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails
+                  .dob.toString(), "years");
+          }
+
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
           }
 
           resp.status = "SUCCESS";
-          resp.messages = "Requests.";
           resp.data.profiles = docs;
           return reply(resp);
-
-          //reply().code(204);
         });
       });
-
     }
   });
 
@@ -1097,13 +1144,16 @@ exports.register = function(server, options, next) {
         $addToSet: {
           interestOut: req.id
         }
+
       };
 
       if (req.isSlProfiles == true) {
         queryObj.$pull = {
           shortlisted: req.id
-        };
+        }
       }
+
+      console.log("queryObj: " + util.inspect(queryObj, false, null));
 
       db.users.update({
         _id: mongojs.ObjectId(request.auth.credentials._id)
@@ -1114,11 +1164,23 @@ exports.register = function(server, options, next) {
 
         console.log("result: " + util.inspect(result, false, null));
 
+        /*queryObj = {
+          $addToSet: {
+            interestOut: req.id
+          },
+          $pull: {
+          }
+        };
+
+        queryObj.$pull.viewedBy = req.id;*/
         db.users.update({
-          _id: mongojs.ObjectId(request.payload.data.id)
+          _id: mongojs.ObjectId(req.id)
         }, {
           $addToSet: {
             interestIn: request.auth.credentials._id
+          },
+          $pull: {
+            viewedBy: request.auth.credentials._id
           }
         }, function(err, result) {
           if (err) {
@@ -1200,11 +1262,12 @@ exports.register = function(server, options, next) {
   // Get shortlist
   server.route({
     method: 'GET',
-    path: '/shortlist',
+    path: '/shortlist/{page}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
+      var page = request.params.page;
 
       db.users.findOne({
         _id: mongojs.ObjectId(request.auth.credentials._id)
@@ -1254,13 +1317,16 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
-        }, function(err, docs) {
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray(function(err, docs) {
           if (err) {
             return reply(Boom.wrap(err,
               'Internal MongoDB error'));
           }
 
-          for (var i = 0, len = docs.length; i < len; i++) {
+          var docLength = docs.length;
+
+          for (var i = 0; i < docLength; i++) {
             if (docs[i].basicDetails)
               if (docs[i].basicDetails
                 .dob)
@@ -1269,8 +1335,14 @@ exports.register = function(server, options, next) {
                   .dob.toString(), "years");
           }
 
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
+          }
+
           resp.status = "SUCCESS";
-          resp.messages = "Shortlisted profiles.";
           resp.data.profiles = docs;
           reply(resp);
         });
@@ -1279,7 +1351,269 @@ exports.register = function(server, options, next) {
   });
 
   // Get users
-  // Need to change
+  server.route({
+    method: 'GET',
+    path: '/users/paginate/{page}',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+      var page = request.params.page;
+
+      console.log("request.auth.credentials: " + util.inspect(
+        request.auth.credentials, false, null));
+
+      db.users.findOne({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        shortlisted: true,
+        interestOut: true,
+        interestIn: true,
+        acceptedBy: true,
+        rejectedBy: true,
+        acceptedOf: true,
+        rejectedOf: true,
+        basicDetails: true,
+        profilePreference: true,
+        isCompleted: true
+      }, (err, doc) => {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        console.log("doc: " + util.inspect(doc, false, null));
+
+        var queryObj = {};
+        var queryObjLocal = {};
+        var shortlistedIds = [];
+        var interestOutIds = [];
+        var acceptedByIds = [];
+        var rejectedByIds = [];
+        var acceptedOfIds = [];
+        var rejectedOfIds = [];
+        var interestInIds = [];
+
+        if (doc) {
+          if (!doc.isCompleted) {
+            resp.status = "ERROR";
+            resp.messages =
+              "Complete your profile to see other profiles.";
+            //console.log("NEW: %j", docs);
+            reply(resp);
+          }
+
+          if (doc.acceptedOf !== undefined) {
+            for (var i = 0; i < doc.acceptedOf.length; i++) {
+              acceptedOfIds.push(mongojs.ObjectId(doc.acceptedOf[
+                i]));
+            }
+          }
+          console.log("acceptedOfIds: " + util.inspect(
+            acceptedOfIds, false, null));
+
+          if (doc.rejectedOf !== undefined) {
+            for (var i = 0; i < doc.rejectedOf.length; i++) {
+              rejectedOfIds.push(mongojs.ObjectId(doc.rejectedOf[
+                i]));
+            }
+          }
+          console.log("rejectedOfIds: " + util.inspect(
+            rejectedOfIds, false, null));
+
+          if (doc.interestIn !== undefined) {
+            for (var i = 0; i < doc.interestIn.length; i++) {
+              interestInIds.push(mongojs.ObjectId(doc.interestIn[
+                i]));
+            }
+          }
+          console.log("interestInIds: " + util.inspect(
+            interestInIds, false, null));
+
+          if (doc.rejectedBy !== undefined) {
+            for (var i = 0; i < doc.rejectedBy.length; i++) {
+              rejectedByIds.push(mongojs.ObjectId(doc.rejectedBy[
+                i]));
+            }
+          }
+          console.log("rejectedByIds: " + util.inspect(
+            rejectedByIds, false, null));
+
+          if (doc.acceptedBy !== undefined) {
+            for (var i = 0; i < doc.acceptedBy.length; i++) {
+              acceptedByIds.push(mongojs.ObjectId(doc.acceptedBy[
+                i]));
+            }
+          }
+          console.log("acceptedByIds: " + util.inspect(
+            acceptedByIds, false, null));
+
+          if (doc.shortlisted !== undefined) {
+            for (var i = 0; i < doc.shortlisted.length; i++) {
+              shortlistedIds.push(mongojs.ObjectId(doc.shortlisted[
+                i]));
+            }
+          }
+          console.log("shortlistedIds: " + util.inspect(
+            shortlistedIds, false, null));
+
+          if (doc.interestOut !== undefined) {
+            for (var i = 0; i < doc.interestOut.length; i++) {
+              interestOutIds.push(mongojs.ObjectId(doc.interestOut[
+                i]));
+            }
+          }
+          console.log("interestOutIds: " + util.inspect(
+            interestOutIds, false, null));
+
+          queryObj = {
+            $and: [{
+              _id: {
+                $nin: shortlistedIds.concat(interestOutIds,
+                  interestInIds, acceptedByIds,
+                  rejectedByIds, acceptedOfIds,
+                  rejectedOfIds)
+              }
+            }, {
+              _id: {
+                $ne: mongojs.ObjectId(request.auth.credentials
+                  ._id)
+              }
+            }, {
+              "basicDetails.gender": {
+                $ne: doc.basicDetails.gender
+              }
+            }, {
+              isCompleted: true
+            }]
+          };
+
+          if (doc.profilePreference !== undefined) {
+            var preference = doc.profilePreference;
+
+            if (preference.minAge.toLowerCase() != "any") {
+              queryObjLocal["basicDetails.dob"] = {
+                $lte: parseInt(moment(moment().subtract(parseInt(
+                    preference.minAge),
+                  'years')._d).format('YYYYMMDD'))
+              }
+
+              queryObj.$and.push(queryObjLocal);
+            }
+
+            if (preference.maxAge.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["basicDetails.dob"] = {
+                $gte: parseInt(moment(moment().subtract(parseInt(
+                    preference.maxAge) + 1,
+                  'years')._d).format('YYYYMMDD'))
+              }
+              queryObj.$and.push(queryObjLocal);
+            }
+            //queryObjLocal.basicDetails.maxAge = preference.maxAge;
+
+            if (preference.minHeight.toLowerCase() != "any") {
+              var heightSplit = preference.minHeight.split(" ");
+              var feet = parseInt(heightSplit[0]);
+              var inches = 0;
+
+              if (heightSplit.length > 2) {
+                inches = parseInt(heightSplit[2]);
+              }
+
+              queryObjLocal["basicDetails.height.feet"] = {
+                $gte: feet
+              };
+
+              queryObjLocal["basicDetails.height.inches"] = {
+                $gte: inches
+              };
+
+              queryObjLocal = {};
+              queryObj.$and.push(queryObjLocal);
+            }
+
+
+            if (preference.maxHeight.toLowerCase() != "any") {
+              var heightSplit = preference.maxHeight.split(" ");
+              var feet = parseInt(heightSplit[0]);
+              var inches = 0;
+
+              if (heightSplit.length > 2) {
+                inches = parseInt(heightSplit[2]);
+              }
+
+              queryObjLocal["basicDetails.height.feet"] = {
+                $lte: feet
+              };
+
+              queryObjLocal["basicDetails.height.inches"] = {
+                $lte: inches
+              };
+
+              queryObjLocal = {};
+              queryObj.$and.push(queryObjLocal);
+            }
+
+            if (preference.complexion.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["basicDetails.complexion"] = preference
+                .complexion;
+              queryObj.$and.push(queryObjLocal);
+            }
+
+            if (preference.bodyType.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["basicDetails.bodyType"] = preference.bodyType;
+              queryObj.$and.push(queryObjLocal);
+            }
+
+
+            if (preference.subCaste.toLowerCase() != "any") {
+              queryObjLocal = {};
+              queryObjLocal["religiousInfo.subCaste"] = preference.subCaste;
+              queryObj.$and.push(queryObjLocal);
+            }
+          }
+        }
+
+        db.users.find(queryObj, {
+          basicDetails: true,
+          userId: true,
+          dp: true,
+          locationInfo: true
+        }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
+          0).toArray((err, docs) => {
+          if (err) {
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
+          }
+
+          var docLength = docs.length;
+
+          for (var i = 0; i < docLength; i++) {
+            if (docs[i].basicDetails)
+              if (docs[i].basicDetails.dob)
+                docs[i].basicDetails.age = moment().diff(docs[i]
+                  .basicDetails.dob.toString(), "years");
+          }
+
+          resp.data.hasMore = true;
+
+          if (docLength < nPerPage) {
+            resp.data.hasMore = false;
+            resp.messages = "You have visited all profiles.";
+          }
+
+          resp.status = "SUCCESS";
+          resp.data.profiles = docs;
+          //console.log("NEW: %j", docs);
+          reply(resp);
+        });
+      });
+    }
+  });
+
+  // Get users
   server.route({
     method: 'GET',
     path: '/users',
@@ -1909,7 +2243,8 @@ exports.register = function(server, options, next) {
 
           var token = {
             _id: doc._id,
-            exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time
+            gender: doc.gender,
+            exp: new Date().getTime() + 30 * 60 * 1000 // expires in 30 minutes time
           }
 
           // sign the session as a JWT
@@ -2080,7 +2415,7 @@ exports.register = function(server, options, next) {
         }
 
         resp.status = "SUCCESS";
-        resp.messages = "Added";
+        resp.messages = "Updated location information.";
         return reply(resp);
 
         //reply().code(204);
@@ -2214,10 +2549,9 @@ exports.register = function(server, options, next) {
         }
 
         resp.status = "SUCCESS";
-        resp.messages = "Added";
+        resp.messages = "Updated profession information";
         reply(resp);
       });
-
     }
   });
 
