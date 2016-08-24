@@ -277,6 +277,9 @@ exports.register = function(server, options, next) {
           },
           $pull: {
             interestOut: request.auth.credentials._id
+          },
+          $pull: {
+            viewedBy: request.auth.credentials._id
           }
         }, function(err, result) {
           if (err) {
@@ -324,6 +327,9 @@ exports.register = function(server, options, next) {
           },
           $pull: {
             interestOut: request.auth.credentials._id
+          },
+          $pull: {
+            viewedBy: request.auth.credentials._id
           }
         }, function(err, result) {
           if (err) {
@@ -1144,7 +1150,6 @@ exports.register = function(server, options, next) {
         $addToSet: {
           interestOut: req.id
         }
-
       };
 
       if (req.isSlProfiles == true) {
@@ -1399,7 +1404,7 @@ exports.register = function(server, options, next) {
             resp.messages =
               "Complete your profile to see other profiles.";
             //console.log("NEW: %j", docs);
-            reply(resp);
+            return reply(resp);
           }
 
           if (doc.acceptedOf !== undefined) {
@@ -1661,7 +1666,7 @@ exports.register = function(server, options, next) {
             resp.messages =
               "Complete your profile to see other profiles.";
             //console.log("NEW: %j", docs);
-            reply(resp);
+            return reply(resp);
           }
 
           if (doc.acceptedOf !== undefined) {
@@ -2104,13 +2109,14 @@ exports.register = function(server, options, next) {
 
               var token = {
                 _id: doc._id,
-                exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time
+                gender: doc.basicDetails.gender
+                /*exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time*/
               }
 
               // sign the session as a JWT
               // var signedToken = JWT.sign(token, process.env.JWT_SECRET); // synchronous
               var signedToken = JWT.sign(token,
-                "NeverShareYourSecret"); // synchronous
+                "NeverShareYourSecret", { algorithm: server.app.jwtToken.algorithm, expiresIn: server.app.jwtToken.expiresIn }); // synchronous
 
               console.log("signedToken: " + signedToken);
 
@@ -2243,18 +2249,17 @@ exports.register = function(server, options, next) {
 
           var token = {
             _id: doc._id,
-            gender: doc.gender,
-            exp: new Date().getTime() + 30 * 60 * 1000 // expires in 30 minutes time
+            gender: doc.gender/*,
+            exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time*/
           }
 
           // sign the session as a JWT
           // var signedToken = JWT.sign(token, process.env.JWT_SECRET); // synchronous
           var signedToken = JWT.sign(token,
-            "NeverShareYourSecret"); // synchronous
+            "NeverShareYourSecret", { algorithm: server.app.jwtToken.algorithm, expiresIn: server.app.jwtToken.expiresIn }); // synchronous
 
           console.log("signedToken: " + signedToken);
           resp.status = "SUCCESS";
-          // reply({text: 'Check Auth Header for your Token'})
           resp.token = signedToken;
           resp.data = doc;
           reply(resp)
@@ -2516,7 +2521,6 @@ exports.register = function(server, options, next) {
         }
 
         resp.messages = "Data found.";
-        //console.log(util.inspect(doc, false, null));
         resp.data.professionInfo = doc.professionInfo;
         reply(resp);
       });

@@ -7,6 +7,12 @@ const util = require('util');
 
 // Create a server with a host and port
 const server = new Hapi.Server();
+const jwtToken = {
+  algorithm: "HS256",
+  expiresIn: "240h"
+};
+
+server.app.jwtToken = jwtToken;
 
 var validate = function(decoded, request, callback) {
 
@@ -37,14 +43,15 @@ server.register(require('hapi-auth-jwt2'), function(err) {
   if (err) {
     console.log(err);
   }
-
+  // Change secret key
   server.auth.strategy('jwt', 'jwt', {
     key: 'NeverShareYourSecret',
     validateFunc: validate, // validate function defined above
     verifyOptions: {
       algorithms: ['HS256'],
       tokenType: "bearer",
-      complete: true
+      complete: true,
+      ignoreExpiration: true
     }
   });
 
@@ -166,7 +173,7 @@ const options = {
 };
 
 //Connect to db
-server.app.db = mongojs('smdb-19aug', ['users', 'images']);
+server.app.db = mongojs('smdb-19aug', ['users', 'images', 'util']);
 
 server.app.db.on('error', function(err) {
   console.log('database error', err)
@@ -203,7 +210,8 @@ console.log("table: " + table);*/
 //Load plugins and start server
 server.register([
   require('./routes/users'),
-  require('./routes/images'), {
+  require('./routes/images'),
+  require('./routes/initapp'), {
     register: require('good'),
     options: options
   }
