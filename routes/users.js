@@ -14,6 +14,32 @@ exports.register = function(server, options, next) {
   const nPerPage = 5;
   const saltRounds = 10;
 
+  server.route({
+    method: 'POST',
+    path: '/lastactive',
+    handler: function(request, reply) {
+      var resp = {
+        data: {}
+      };
+      var req = request.payload.data;
+
+      db.users.update({
+        _id: mongojs.ObjectId(request.auth.credentials._id)
+      }, {
+        $set: {
+          lastActive: new Date()
+        }
+      }, function(err, doc) {
+        if (err) {
+          return reply(Boom.wrap(err, 'Internal MongoDB error'));
+        }
+
+        resp.status = "SUCCESS";
+        reply(resp);
+      });
+    }
+  });
+
   // Get visitors
   server.route({
     method: 'GET',
@@ -58,6 +84,8 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
+        }).sort({
+          createdAt: -1
         }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
           0).toArray((err, docs) => {
           if (err) {
@@ -134,6 +162,8 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
+        }).sort({
+          createdAt: -1
         }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
           0).toArray((err, docs) => {
           if (err) {
@@ -214,6 +244,8 @@ exports.register = function(server, options, next) {
           locationInfo: true,
           dp: true,
           userId: true
+        }).sort({
+          createdAt: -1
         }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
           0).toArray((err, docs) => {
           if (err) {
@@ -277,9 +309,6 @@ exports.register = function(server, options, next) {
           },
           $pull: {
             interestOut: request.auth.credentials._id
-          },
-          $pull: {
-            viewedBy: request.auth.credentials._id
           }
         }, function(err, result) {
           if (err) {
@@ -326,9 +355,7 @@ exports.register = function(server, options, next) {
             acceptedBy: request.auth.credentials._id
           },
           $pull: {
-            interestOut: request.auth.credentials._id
-          },
-          $pull: {
+            interestOut: request.auth.credentials._id,
             viewedBy: request.auth.credentials._id
           }
         }, function(err, result) {
@@ -384,15 +411,18 @@ exports.register = function(server, options, next) {
       }, {
         $set: {
           profilePreference: req.profilePreference
+        },
+        $addToSet: {
+          profileProgress: "profilePreference"
         }
       }, function(err, result) {
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        if (result.n === 0) {
+        /*if (result.n === 0) {
           return reply(Boom.notFound());
-        }
+        }*/
 
         resp.status = "SUCCESS";
         resp.messages = "Updated profile preference.";
@@ -696,6 +726,9 @@ exports.register = function(server, options, next) {
       }, {
         $set: {
           religiousInfo: req.religiousInfo
+        },
+        $addToSet: {
+          profileProgress: "religiousInfo"
         }
       }, function(err, result) {
         if (err) {
@@ -792,6 +825,9 @@ exports.register = function(server, options, next) {
       }, {
         $set: {
           basicDetails: req.basicDetails
+        },
+        $addToSet: {
+          profileProgress: "basicDetails"
         }
       }, function(err, result) {
         if (err) {
@@ -852,6 +888,8 @@ exports.register = function(server, options, next) {
           dp: true,
           locationInfo: true,
           userId: true
+        }).sort({
+          createdAt: -1
         }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
           0).toArray((err, docs) => {
           if (err) {
@@ -926,6 +964,8 @@ exports.register = function(server, options, next) {
           dp: true,
           locationInfo: true,
           userId: true
+        }).sort({
+          createdAt: -1
         }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
           0).toArray((err, docs) => {
           if (err) {
@@ -1121,6 +1161,9 @@ exports.register = function(server, options, next) {
         }, {
           $pull: {
             interestIn: request.auth.credentials._id
+          },
+          $addToSet: {
+            viewedBy: request.auth.credentials._id
           }
         }, function(err, result) {
           if (err) {
@@ -1185,7 +1228,8 @@ exports.register = function(server, options, next) {
             interestIn: request.auth.credentials._id
           },
           $pull: {
-            viewedBy: request.auth.credentials._id
+            viewedBy: request.auth.credentials._id,
+            shortlisted: request.auth.credentials._id
           }
         }, function(err, result) {
           if (err) {
@@ -1212,6 +1256,7 @@ exports.register = function(server, options, next) {
         data: {}
       };
       const user = request.payload.data;
+
       db.users.update({
         _id: mongojs.ObjectId(request.auth.credentials._id)
       }, {
@@ -1223,16 +1268,23 @@ exports.register = function(server, options, next) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        console.log("result: " + result);
-        /*if (result.n === 0) {
-          return reply(Boom.notFound());
-        }*/
-        resp.status = "SUCCESS";
-        resp.messages = "Unshortlisted!";
-        resp.data = result;
-        return reply(resp);
+        db.users.update({
+          _id: mongojs.ObjectId(user.id)
+        }, {
+          $addToSet: {
+            viewedBy: request.auth.credentials._id
+          }
+        }, function(err, result) {
+          if (err) {
+            return reply(Boom.wrap(err,
+              'Internal MongoDB error'));
+          }
 
-        //reply().code(204);
+          resp.status = "SUCCESS";
+          resp.messages = "Unshortlisted";
+          resp.data = result;
+          return reply(resp);
+        });
       });
     }
   });
@@ -1586,6 +1638,8 @@ exports.register = function(server, options, next) {
           userId: true,
           dp: true,
           locationInfo: true
+        }).sort({
+          createdAt: -1
         }).limit(nPerPage).skip(page > 0 ? ((page - 1) * nPerPage) :
           0).toArray((err, docs) => {
           if (err) {
@@ -1900,13 +1954,14 @@ exports.register = function(server, options, next) {
 
   server.route({
     method: 'GET',
-    path: '/users/{id}',
+    path: '/users/{id}/{view?}',
     handler: function(request, reply) {
       var resp = {
         data: {}
       };
       var req = request.params;
       console.log("request.params.id:" + req.id);
+      console.log("request.params.view:" + req.view);
 
       db.users.findOne({
         _id: mongojs.ObjectId(req.id)
@@ -1929,8 +1984,8 @@ exports.register = function(server, options, next) {
           return reply(Boom.notFound());
         }
 
-        if (req.id != request.auth.credentials
-          ._id) {
+        if (req.view) {
+          console.log("viewedBy true");
 
           db.users.update({
             _id: mongojs.ObjectId(req.id)
@@ -1944,16 +1999,6 @@ exports.register = function(server, options, next) {
               return reply(Boom.wrap(err,
                 'Internal MongoDB error'));
             }
-
-            /*if (doc.basicDetails) {
-              if (doc.basicDetails.dob)
-                doc.basicDetails.age = moment().diff(doc.basicDetails.dob
-                  .toString(), "years");
-            }
-
-            resp.status = "SUCCESS";
-            resp.data.profile = doc;
-            return reply(resp);*/
           });
         }
 
@@ -2093,6 +2138,7 @@ exports.register = function(server, options, next) {
           req.isPaid = false;
           req.isCompleted = false;
           req.isDP = false;
+          req.profileProgress = [];
 
           bcrypt.hash(req.password, saltRounds, function(err, hash) {
             if (err) {
@@ -2110,13 +2156,16 @@ exports.register = function(server, options, next) {
               var token = {
                 _id: doc._id,
                 gender: doc.basicDetails.gender
-                /*exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time*/
+                  /*exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time*/
               }
 
               // sign the session as a JWT
               // var signedToken = JWT.sign(token, process.env.JWT_SECRET); // synchronous
               var signedToken = JWT.sign(token,
-                "NeverShareYourSecret", { algorithm: server.app.jwtToken.algorithm, expiresIn: server.app.jwtToken.expiresIn }); // synchronous
+                "NeverShareYourSecret", {
+                  algorithm: server.app.jwtToken.algorithm,
+                  expiresIn: server.app.jwtToken.expiresIn
+                }); // synchronous
 
               console.log("signedToken: " + signedToken);
 
@@ -2249,14 +2298,18 @@ exports.register = function(server, options, next) {
 
           var token = {
             _id: doc._id,
-            gender: doc.gender/*,
-            exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time*/
+            gender: doc.gender
+              /*,
+                          exp: new Date().getTime() + 1 * 60 * 1000 // expires in 30 minutes time*/
           }
 
           // sign the session as a JWT
           // var signedToken = JWT.sign(token, process.env.JWT_SECRET); // synchronous
           var signedToken = JWT.sign(token,
-            "NeverShareYourSecret", { algorithm: server.app.jwtToken.algorithm, expiresIn: server.app.jwtToken.expiresIn }); // synchronous
+            "NeverShareYourSecret", {
+              algorithm: server.app.jwtToken.algorithm,
+              expiresIn: server.app.jwtToken.expiresIn
+            }); // synchronous
 
           console.log("signedToken: " + signedToken);
           resp.status = "SUCCESS";
@@ -2286,13 +2339,11 @@ exports.register = function(server, options, next) {
         if (!doc) {
           resp.status = "ERROR";
           resp.messages = "No auth";
-          //return reply(Boom.notFound());
           return reply(resp);
         }
 
         reply(resp);
       });
-
     }
   });
 
@@ -2319,11 +2370,8 @@ exports.register = function(server, options, next) {
           return reply(resp);
         }
 
-        resp.messages = "Data found.";
-        //console.log(util.inspect(doc, false, null));
         resp.data.pinfo = doc.pinfo;
-        //resp.data.pinfo.dob = new Date(resp.data.pinfo.dob);
-        return reply(resp);
+        reply(resp);
       });
     }
   });
@@ -2348,17 +2396,10 @@ exports.register = function(server, options, next) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        if (result.n === 0) {
-          return reply(Boom.notFound());
-        }
-
         resp.status = "SUCCESS";
         resp.messages = "Added";
-        return reply(resp);
-
-        //reply().code(204);
+        reply(resp);
       });
-
     }
   });
 
@@ -2387,8 +2428,6 @@ exports.register = function(server, options, next) {
           return reply(resp);
         }
 
-        resp.messages = "Data found.";
-        //console.log(util.inspect(doc, false, null));
         resp.data.locationInfo = doc.locationInfo;
         reply(resp);
       });
@@ -2409,23 +2448,23 @@ exports.register = function(server, options, next) {
       }, {
         $set: {
           locationInfo: req.locationInfo
+        },
+        $addToSet: {
+          profileProgress: "locationInfo"
         }
       }, function(err, result) {
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
         }
 
-        if (result.n === 0) {
+        /*if (result.n === 0) {
           return reply(Boom.notFound());
-        }
+        }*/
 
         resp.status = "SUCCESS";
         resp.messages = "Updated location information.";
-        return reply(resp);
-
-        //reply().code(204);
+        reply(resp);
       });
-
     }
   });
 
@@ -2477,6 +2516,9 @@ exports.register = function(server, options, next) {
         $set: {
           familyInfo: req.familyInfo,
           isCompleted: true
+        },
+        $addToSet: {
+          profileProgress: "familyInfo"
         }
       }, function(err, doc) {
         if (err) {
@@ -2542,14 +2584,13 @@ exports.register = function(server, options, next) {
       }, {
         $set: {
           professionInfo: req.professionInfo
+        },
+        $addToSet: {
+          profileProgress: "professionInfo"
         }
       }, function(err, result) {
         if (err) {
           return reply(Boom.wrap(err, 'Internal MongoDB error'));
-        }
-
-        if (result.n === 0) {
-          return reply(Boom.notFound());
         }
 
         resp.status = "SUCCESS";

@@ -1,12 +1,19 @@
 'use strict';
 
 const Hapi = require('hapi');
+require('dotenv').config();
 const mongojs = require('mongojs');
 const moment = require('moment');
 const util = require('util');
+const ymlConfig = require('node-yaml-config');
+const conf = ymlConfig.load(__dirname + '/config/config.yml', process.env.ENV);
+
+console.log("conf: " + util.inspect(conf, false, null));
+console.log("a: " + process.env.ENV);
 
 // Create a server with a host and port
 const server = new Hapi.Server();
+
 const jwtToken = {
   algorithm: "HS256",
   expiresIn: "240h"
@@ -14,25 +21,25 @@ const jwtToken = {
 
 server.app.jwtToken = jwtToken;
 
-var validate = function(decoded, request, callback) {
+var validate = function(decoded, request, cb) {
 
   // do your checks to see if the person is valid
   console.log("request.headers.authorization Validate: " + request.headers.authorization);
-  console.log("decoded: " + util.inspect(decoded, false, null));
+  console.log("Decoded token: " + util.inspect(decoded, false, null));
 
   /*if (!people[decoded.id]) {
-    return callback(null, false);
+    return cb(null, false);
   }
   else {
-    return callback(null, true);
+    return cb(null, true);
   }*/
-  callback(null, true);
+  cb(null, true);
 };
 
 
 server.connection({
   /*host:"localhost",*/
-  port: 3000,
+  port: conf.server.port,
   routes: {
     cors: true
   }
@@ -91,7 +98,7 @@ server.register(require('hapi-auth-jwt2'), function(err) {
 
 const opts = {
   file: {
-    filename: './logs/sm-ws.log',
+    filename: conf.logs.dir + '/sm-ws.log',
     format: ':level :time :data',
     timestamp: 'HH:mm:ss',
     accessFormat: ':time :level :method :status :url'
@@ -119,10 +126,10 @@ const opts = {
 
 
 var logger = require('bucker').createLogger({
-  access: './logs/access.log',
-  error: './logs/error.log',
+  access: conf.logs.dir + '/access.log',
+  error: conf.logs.dir + '/error.log',
   app: {
-    file: './logs/app.log'
+    file: conf.logs.dir + '/app.log'
   },
   console: true
 }, module);
@@ -167,13 +174,13 @@ const options = {
       }]
     }, {
       module: 'good-file',
-      args: ['./logs/good.log']
+      args: [conf.logs.dir + '/good.log']
     }]
   }
 };
 
 //Connect to db
-server.app.db = mongojs('smdb-19aug', ['users', 'images', 'util']);
+server.app.db = mongojs(conf.database.db, conf.database.collections);
 
 server.app.db.on('error', function(err) {
   console.log('database error', err)

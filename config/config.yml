@@ -1,0 +1,37 @@
+default:
+  server:
+    port: 3000
+  database:
+    host: 'localhost'
+    port: 27017
+    db: 'smdb-19aug'
+    collections: ['users', 'images', 'util']
+  logs:
+    dir: '/var/tmp/mm/logs'
+
+local:
+  server:
+    port: 3000
+  database:
+    host: 'localhost'
+    port: 27017
+    db: 'smdb-19aug'
+    collections: ['users', 'images', 'util']
+
+development:
+  database:
+    db: 'dev_db'
+
+test:
+  database:
+    db: 'test_db'
+
+production:
+  server:
+    port: 3000
+  database:
+    db: 'localhost'
+    user: 'dbuser'
+    password: 'pass'
+  cache:
+    dir: 'static'
