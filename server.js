@@ -7,9 +7,9 @@ const moment = require('moment');
 const util = require('util');
 const ymlConfig = require('node-yaml-config');
 const conf = ymlConfig.load(__dirname + '/config/config.yml', process.env.ENV);
+const pre = require('./pre/pre.js');
 
-console.log("conf: " + util.inspect(conf, false, null));
-console.log("a: " + process.env.ENV);
+console.log("ENV: " + process.env.ENV);
 
 // Create a server with a host and port
 const server = new Hapi.Server();
@@ -68,9 +68,14 @@ server.register(require('hapi-auth-jwt2'), function(err) {
     method: "GET",
     path: "/",
     config: {
-      auth: false
+      auth: false/*,
+      pre: [{
+        method: pre.log,
+        assign: 'log'
+      }]*/
     },
     handler: function(request, reply) {
+      pre.log();
       reply({
         text: 'Token not required'
       });
@@ -232,5 +237,4 @@ server.register([
   server.start((err) => {
     console.log('Server running at:', server.info.uri);
   });
-
 });
