@@ -11,6 +11,9 @@ exports.register = function(server, options, next) {
 
   server.route({
     method: 'GET',
+    config: {
+      auth: false
+    },
     path: '/initapp',
     handler: function(request, reply) {
       var req = request.params;
