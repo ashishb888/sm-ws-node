@@ -1430,6 +1430,7 @@ exports.register = function(server, options, next) {
         rejectedBy: true,
         acceptedOf: true,
         rejectedOf: true,
+        viewedBy: true,
         basicDetails: true,
         profilePreference: true,
         isCompleted: true
@@ -1449,6 +1450,7 @@ exports.register = function(server, options, next) {
         var acceptedOfIds = [];
         var rejectedOfIds = [];
         var interestInIds = [];
+        var viewedByIds = [];
 
         if (doc) {
           if (!doc.isCompleted) {
@@ -1459,8 +1461,16 @@ exports.register = function(server, options, next) {
             return reply(resp);
           }
 
+          if (doc.viewedBy) {
+            for (var i = 0, len = doc.viewedBy.length; i < len; i++) {
+              viewedByIds.push(mongojs.ObjectId(doc.viewedBy[i]));
+            }
+          }
+          console.log("viewedByIds: " + util.inspect(
+            viewedByIds, false, null));
+
           if (doc.acceptedOf !== undefined) {
-            for (var i = 0; i < doc.acceptedOf.length; i++) {
+            for (var i = 0, len = doc.acceptedOf.length; i < len; i++) {
               acceptedOfIds.push(mongojs.ObjectId(doc.acceptedOf[
                 i]));
             }
@@ -1528,7 +1538,7 @@ exports.register = function(server, options, next) {
                 $nin: shortlistedIds.concat(interestOutIds,
                   interestInIds, acceptedByIds,
                   rejectedByIds, acceptedOfIds,
-                  rejectedOfIds)
+                  rejectedOfIds, viewedByIds)
               }
             }, {
               _id: {

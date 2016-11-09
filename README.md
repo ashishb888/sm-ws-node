@@ -9,4 +9,5 @@ You should have a current version of node installed and a local MongoDB server r
 ```
 npm install
 node app.js
+supervisor server.js
 ```
