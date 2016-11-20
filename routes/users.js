@@ -1302,6 +1302,9 @@ exports.register = function(server, options, next) {
       }, {
         $addToSet: {
           shortlisted: user.id
+        },
+        $pull: {
+          viewedBy: user.id
         }
       }, function(err, result) {
         if (err) {
@@ -1310,7 +1313,7 @@ exports.register = function(server, options, next) {
 
         resp.status = "SUCCESS";
         resp.messages = "Shortlisted!";
-        resp.data = result;
+        // resp.data = result;
         return reply(resp);
       });
     }

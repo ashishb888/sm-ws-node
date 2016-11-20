@@ -1,0 +1,59 @@
+Full name - पूर्ण नाव
+Gender - लिंग
+Male - पुरुष
+Date of Birth - जन्म तारीख
+Height - उंची
+Weight - वजन
+Body type -शरीर प्रकार
+complexion - वर्ण
+very fair- फार सुंदर
+fair - गोरा
+Wheatish - गहू
+Wheatish brown - निमगोरा
+slim - सडपातळ
+average - सरासरी
+athletic - मैदानी
+Heavy - जड
+caste -जात
+sub caste - उपजाती
+zodiac - राशी
+
+Aries - मेष
+Leo - सिंह
+virgo -कन्या
+sagittarious- धनु
+taurus - वृषभ
+capricorn - मकर
+gemini - मिथुन
+libra - तूळ
+aquarious - कुंभ
+cancer - कर्क
+scorpio - वृश्चिक
+pisces - मीन
+
+
+
+professional information- व्यावसायिक माहिती
+education- शिक्षण
+occupation -व्यवसाय
+occupation description - उद्योग वर्णन
+annual income - वार्षिक उत्पन्न
+higher education - उच्च शिक्षण
+job - नोकरी
+farming - शेती
+business- व्यवसाय
+business description- व्यवसाय वर्णन
+location - पत्ता
+district - जिल्हा
+taluka - तालुक्यातील
+town - शहर
+
+family type - कुटुंब प्रकार
+joint family- एकत्र कुटुंब
+nuclear family -विभक्त कुटुंब
+family values - कौटुंबिक मूल्ये
+moderate- मध्यम
+traditional- पारंपारिक
+family status- कौटुंबिक स्थिती
+middle class -मध्यमवर्ग
+upper middle class -उच्च मध्यम वर्ग

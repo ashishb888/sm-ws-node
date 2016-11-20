@@ -11,3 +11,10 @@ npm install
 node app.js
 supervisor server.js
 ```
+
+##Technologies used:
+
+```
+HapiJS 15.x.x
+MongoDB 2.6
+```
